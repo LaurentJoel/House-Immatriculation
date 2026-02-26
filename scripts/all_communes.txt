@@ -1,0 +1,364 @@
+﻿     adm3_name1     
+--------------------
+ Abong-Mbang
+ Afanloum
+ Ako
+ Akoeman
+ Akom 2
+ Akono
+ Akonolinga
+ Akwaya
+ Alou
+ Ambam
+ Assamba
+ Awae
+ Ayos
+ Babadjou
+ Babessi
+ Bafang
+ Bafia
+ Bafoussam 1er
+ Bafoussam 2e
+ Bafoussam 3e
+ Bafut
+ Baham
+ Bakou
+ Bali
+ Balikumbat
+ Bamenda 1st
+ Bamenda 2nd
+ Bamenda 3rd
+ Bamendjou
+ Bamusso
+ Bana
+ Bandja
+ Bangangte
+ Bangem
+ Bangou
+ Bangourain
+ Banka
+ Bankim
+ Banwa
+ Banyo
+ Bare-Bakem
+ Bascheo
+ Bassamba
+ Batcham
+ Batchenga
+ Batibo
+ Batie
+ Batouri
+ Bayangam
+ Bazou
+ Bebend
+ Beka
+ Belabo
+ Belel
+ Belo
+ Bengbis
+ Bertoua 1er
+ Bertoua 2e
+ Betare-Oya
+ Bibemi
+ Bibey
+ Bikok
+ Bipindi
+ Biwong-Bane
+ Biwong-Bulu
+ Biyouha
+ Blangoua
+ Bogo
+ Bokito
+ Bombe
+ Bondjock
+ Bot-Makak
+ Bourrha
+ Buea
+ Bum
+ Campo
+ Darak
+ Dargala
+ Datcheka
+ Dembo
+ Demsa
+ Deuk
+ Diang
+ Dibamba
+ Dibang
+ Dibombari
+ Dikome Balue
+ Dimako
+ Dir
+ Dizangue
+ Dja
+ Djebem
+ Djohong
+ Djoum
+ Douala 1er
+ Douala 2e
+ Douala 3e
+ Douala 4e
+ Douala 5e
+ Douala 6e
+ Doumaintang
+ Doume
+ Dschang
+ Dzeng
+ Ebebda
+ Ebolowa 1er
+ Ebolowa 2e
+ Edea 1er
+ Edea 2e
+ Edzendouan
+ Efoulan
+ Ekondo Titi
+ Elig-Mfomo
+ Endom
+ Eseka
+ Esse
+ Evodoula
+ Eyumodjock
+ Figuil
+ Fiko
+ Fokoue
+ Fongo-Tongo
+ Fontem
+ Fotokol
+ Foumban
+ Foumbot
+ Fundong
+ Fungom
+ Furu-Awa
+ Galim
+ Galim-Tignere
+ Gari Gombo
+ Garoua 1er
+ Garoua 2e
+ Garoua 3e
+ Garoua-Boulai
+ Gazawa
+ Gobo
+ Goulfey
+ Guere
+ Guider
+ Guidiguis
+ Hile-Alifa
+ Hina
+ Idabato
+ Isangele
+ Jakiri
+ Kaele
+ Kai-Kai
+ Kalfou
+ Kar-Hay
+ Kekem
+ Kette
+ Kiiki
+ Kolofata
+ Kombo Abedimo
+ Kombo Itindi
+ Kontcha
+ Kon Yambetta
+ Konye
+ Kouoptamo
+ Kousseri
+ Koutaba
+ Koza
+ Kribi 1er
+ Kribi 2e
+ Kumba 1st
+ Kumba 2nd
+ Kumba 3rd
+ Kumbo
+ Kye-Ossi
+ Lagdo
+ Lembe Yezoum
+ Limbe 1st
+ Limbe 2nd
+ Limbe 3rd
+ Lobo
+ Logone-Birni
+ Lokoundje
+ Lolodorf
+ Lomie
+ Loum
+ Maan
+ Madingring
+ Maga
+ Magba
+ Makak
+ Makary
+ Makenene
+ Malantouen
+ Mamfe
+ Mandjou
+ Manjo
+ Maroua 1er
+ Maroua 2e
+ Maroua 3e
+ Martap
+ Massangam
+ Massock-Songloulou
+ Matomb
+ Mayo-Baleo
+ Mayo-Darle
+ Mayo-Hourna
+ Mayo-Moskota
+ Mayo-Oulo
+ Mbalmayo
+ Mbandjock
+ Mbang
+ Mbanga
+ Mbangassina
+ Mbankomo
+ Mbe
+ Mbengwi
+ Mboanz
+ Mboma
+ Mbonge
+ Mbotoro
+ Mbouda
+ Mbven
+ Meiganga
+ Melong
+ Menchum-Valley
+ Mengang
+ Mengong
+ Mengueme
+ Meri
+ Messamena
+ Messok
+ Messondo
+ Meyomessala
+ Meyomessi
+ Mfou
+ Mindif
+ Minta
+ Mintom
+ Misaje
+ Mogode
+ Mokolo
+ Moloundou
+ Mombo
+ Monatele
+ Mora
+ Mouanko
+ Moulvoudaye
+ Moutourwa
+ Mundemba
+ Muyuka
+ Mvangane
+ Mvengue
+ Nanga-Eboko
+ Ndelele
+ Ndem Nam
+ Ndikinimeki
+ Ndom
+ Ndop
+ Ndoukoula
+ Ndu
+ Ngambe
+ Ngambe-Tikar
+ Nganha
+ Ngaoui
+ Ngaoundal
+ Ngaoundere 1er
+ Ngaoundere 2e
+ Ngaoundere 3e
+ Ngie
+ Ngog-Mapubi
+ Ngomedzap
+ Ngoro
+ Ngoulemakong
+ Ngoumou
+ Ngoura
+ Ngoyla
+ Nguelemendouka
+ Nguibassal
+ Nguti
+ Ngwei
+ Niete
+ Nitoukou
+ Njikwa
+ Njimom
+ Njinikom
+ Njombe-Penja
+ Nkambe
+ Nkolafamba
+ Nkolmetet
+ Nkondjock
+ Nkong-Ni
+ Nkongsamba 1er
+ Nkongsamba 2e
+ Nkongsamba 3e
+ Nkoteng
+ Nkum
+ Nlonako
+ Noni
+ Nord-Makombe
+ Nsem
+ Ntui
+ Nwa
+ Nyakokombo
+ Nyambaka
+ Nyanon
+ Obala
+ Okola
+ Oku
+ Olamze
+ Ombessa
+ Oveng
+ Penka-Michel
+ Pette
+ Pitoa
+ Poli
+ Porhi
+ Pouma
+ Poumougne
+ Rey-Bouba
+ Saa
+ Salapoumbe
+ Sangmelima
+ Santa
+ Santchou
+ Soa
+ Somalomo
+ Soulede-Roua
+ Taibong
+ Tchatibali
+ Tcheboa
+ Tchollire
+ Tibati
+ Tignere
+ Tiko
+ Toko
+ Tokombere
+ Tombel
+ Tonga
+ Touboro
+ Touroua
+ Tubah
+ Upper Bayang
+ Vele
+ Wabane
+ Waza
+ West-Coast
+ Widikum
+ Wina
+ Wum
+ Yabassi
+ Yagoua
+ Yaounde 1er
+ Yaounde 2e
+ Yaounde 3e
+ Yaounde 4e
+ Yaounde 5e
+ Yaounde 6e
+ Yaounde 7e
+ Yingui
+ Yokadouma
+ Yoko
+ Zina
+ Zoetele
+(360 rows)
+

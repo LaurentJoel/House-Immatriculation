@@ -1,0 +1,33 @@
+# Flask & Extensions
+flask==3.0.0
+flask-sqlalchemy==3.1.1
+flask-migrate==4.0.5
+flask-jwt-extended==4.6.0
+flask-babel==4.0.0
+flask-cors==4.0.0
+flask-marshmallow==1.2.0
+marshmallow-sqlalchemy==1.0.0
+marshmallow>=3.0.0,<4.0.0
+
+# Database
+geoalchemy2==0.14.3
+psycopg[binary]==3.2.4
+
+# Cache
+redis==5.0.1
+
+# Server
+gunicorn==21.2.0
+
+# Config
+python-dotenv==1.0.0
+
+# Tasks
+celery==5.3.6
+
+# Testing
+pytest==7.4.3
+pytest-flask==1.3.0
+pytest-cov==4.1.0
+fakeredis==2.20.0
+factory-boy==3.3.0

@@ -1,0 +1,14 @@
+﻿ adm3_name | adm3_name1  | adm3_name2 | adm3_name3 | adm3_ref_n  | adm2_name |    adm2_name1    | adm2_name2 | adm2_name3 
+-----------+-------------+------------+------------+-------------+-----------+------------------+------------+------------
+           | Abong-Mbang |            |            | Abong-Mbang |           | Haut-Nyong       |            | 
+           | Afanloum    |            |            | Afanloum    |           | Mefou-et-Afamba  |            | 
+           | Ako         |            |            | Ako         |           | Donga-Mantung    |            | 
+           | Akoeman     |            |            | Akoeman     |           | Nyong-et-So'o    |            | 
+           | Akom 2      |            |            | Akom 2      |           | Oc??an           |            | 
+           | Akono       |            |            | Akono       |           | Mefou-et-Akono   |            | 
+           | Akonolinga  |            |            | Akonolinga  |           | Nyong-et-Mfoumou |            | 
+           | Akwaya      |            |            | Akwaya      |           | Manyu            |            | 
+           | Alou        |            |            | Alou        |           | Lebialem         |            | 
+           | Ambam       |            |            | Ambam       |           | Vall??e-du-Ntem  |            | 
+(10 rows)
+

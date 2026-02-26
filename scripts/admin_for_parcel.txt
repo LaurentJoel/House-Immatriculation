@@ -1,0 +1,5 @@
+﻿ region |   departement   | commune | code_commune | superficie_km2 
+--------+-----------------+---------+--------------+----------------
+ Centre | Mbam-et-Inoubou | Bafia   | CM002003001  |         238.94
+(1 row)
+

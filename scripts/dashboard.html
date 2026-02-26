@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DGI Cameroun - Dashboard Fiscal</title>
+    <meta name="description" content="Dashboard de visualisation du potentiel fiscal foncier du Cameroun">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+</head>
+
+<body>
+
+    <!-- ── Header ──────────────────────────────────────────────── -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <div class="logo-icon">&#9733;</div>
+                <span>DGI CAMEROUN</span>
+            </div>
+            <div class="search-container">
+                <span class="search-icon">&#128269;</span>
+                <input type="text" id="searchInput" class="search-input"
+                    placeholder="Rechercher une commune, immatriculation...">
+            </div>
+        </div>
+        <div class="header-right">
+            <button id="toggleAirbnb" class="toggle-btn" onclick="toggleAirbnbLayer()">
+                <span class="toggle-indicator"></span>
+                Airbnb
+            </button>
+            <button id="resetBtn" class="toggle-btn" onclick="resetView()">
+                &#127757; Vue nationale
+            </button>
+        </div>
+    </header>
+
+    <!-- ── Main Content ────────────────────────────────────────── -->
+    <div class="main-content">
+
+        <!-- Side Panel -->
+        <aside class="side-panel" id="sidePanel">
+            <!-- Breadcrumb -->
+            <nav class="breadcrumb" id="breadcrumb">
+                <span class="breadcrumb-item active">Cameroun</span>
+            </nav>
+
+            <!-- Stats -->
+            <div class="stats-section" id="statsSection">
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="stat-label">Batiments</div>
+                        <div class="stat-value" id="statBuildings">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Parcelles</div>
+                        <div class="stat-value" id="statParcels">--</div>
+                    </div>
+                    <div class="stat-card full-width">
+                        <div class="stat-label">Impot estime (FCFA)</div>
+                        <div class="stat-value accent" id="statTax">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Airbnb</div>
+                        <div class="stat-value warning" id="statAirbnb">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Airbnb matches</div>
+                        <div class="stat-value" id="statAirbnbMatch">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- List -->
+            <div class="list-section" id="listSection">
+                <div class="list-header">
+                    <span id="listTitle">Regions</span>
+                    <span class="list-count" id="listCount">0</span>
+                </div>
+                <div id="listItems"></div>
+            </div>
+        </aside>
+
+        <!-- Map -->
+        <div class="map-container" id="mapContainer">
+            <div id="map"></div>
+
+            <!-- Legend -->
+            <div class="legend" id="legend">
+                <div class="legend-title">Potentiel fiscal</div>
+                <div class="legend-item"><span class="legend-color" style="background:#1a3a2a"></span>Faible</div>
+                <div class="legend-item"><span class="legend-color" style="background:#2d6a4f"></span>Moyen-bas</div>
+                <div class="legend-item"><span class="legend-color" style="background:#40916c"></span>Moyen</div>
+                <div class="legend-item"><span class="legend-color" style="background:#52b788"></span>Moyen-haut</div>
+                <div class="legend-item"><span class="legend-color" style="background:#74c69d"></span>Eleve</div>
+                <div class="legend-item"><span class="legend-color" style="background:#b7e4c7"></span>Tres eleve</div>
+            </div>
+
+            <!-- Loading -->
+            <div class="loading-overlay" id="loadingOverlay">
+                <div style="text-align:center">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text" id="loadingText">Chargement des donnees...</div>
+                </div>
+            </div>
+
+            <!-- Token Banner (shown if no token) -->
+            <div class="token-banner" id="tokenBanner" style="display:none">
+                <h2>Token Mapbox requis</h2>
+                <p>Pour afficher la carte, entrez votre token Mapbox.<br>
+                    Creez un compte gratuit sur <a href="https://mapbox.com/signup" target="_blank"
+                        style="color:var(--accent)">mapbox.com</a>
+                    et copiez le <code>Default public token</code>.</p>
+                <div class="token-input-group">
+                    <input type="text" id="tokenInput" class="token-input" placeholder="pk.eyJ1Ijo...">
+                    <button class="token-btn" onclick="saveToken()">Valider</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ══════════════════════════════════════════════════════════════
+        //  DGI Dashboard — Mapbox Frontend
+        // ══════════════════════════════════════════════════════════════
+
+        const API_BASE = '';  // same origin
+        const CAMEROON_CENTER = [12.3, 5.9];
+        const CAMEROON_ZOOM = 5.8;
+
+        // Choropleth color scale (green shades for fiscal potential)
+        const CHOROPLETH_COLORS = [
+            '#1a3a2a', '#2d6a4f', '#40916c', '#52b788', '#74c69d', '#b7e4c7'
+        ];
+
+        // State
+        let map = null;
+        let currentLevel = 'regions';  // regions | departments | communes | buildings
+        let currentFilter = null;      // name filter for sub-levels
+        let breadcrumbStack = [{ label: 'Cameroun', level: 'regions', filter: null }];
+        let airbnbVisible = false;
+        let airbnbData = null;
+
+        // ── Token Management ─────────────────────────────────────────
+        function getToken() {
+            return localStorage.getItem('mapbox_token') || '';
+        }
+
+        function saveToken() {
+            const token = document.getElementById('tokenInput').value.trim();
+            if (!token.startsWith('pk.')) {
+                alert('Le token doit commencer par "pk."');
+                return;
+            }
+            localStorage.setItem('mapbox_token', token);
+            document.getElementById('tokenBanner').style.display = 'none';
+            initMap(token);
+        }
+
+        // ── Initialize ───────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = getToken();
+            if (!token) {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                document.getElementById('tokenBanner').style.display = 'block';
+            } else {
+                initMap(token);
+            }
+
+            // Search handler
+            document.getElementById('searchInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') handleSearch(e.target.value);
+            });
+        });
+
+        function initMap(token) {
+            mapboxgl.accessToken = token;
+            map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/dark-v11',
+                center: CAMEROON_CENTER,
+                zoom: CAMEROON_ZOOM,
+                maxZoom: 18,
+                minZoom: 4,
+            });
+
+            map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+            map.on('load', async () => {
+                console.log('Map loaded, starting loadLevel');
+                await loadLevel('regions');
+                await loadNationalStats();
+                hideLoading();
+            });
+
+            map.on('error', (e) => {
+                console.error('Mapbox error:', e);
+            });
+        }
+
+        // ── Data Loading ─────────────────────────────────────────────
+        async function fetchJSON(url) {
+            const res = await fetch(API_BASE + url);
+            if (!res.ok) throw new Error(`API error: ${res.status}`);
+            return res.json();
+        }
+
+        async function loadNationalStats() {
+            try {
+                const stats = await fetchJSON('/api/tax/summary');
+                document.getElementById('statBuildings').textContent = formatNumber(stats.total_batiments);
+                document.getElementById('statParcels').textContent = formatNumber(stats.total_parcelles);
+                document.getElementById('statTax').textContent = '--'; // Will be filled per-region
+                document.getElementById('statAirbnb').textContent = formatNumber(stats.airbnb_total);
+                document.getElementById('statAirbnbMatch').textContent = formatNumber(stats.airbnb_matched);
+            } catch (e) {
+                console.error('Failed to load stats:', e);
+            }
+        }
+
+        async function loadLevel(level, filter) {
+            if (!map) {
+                console.warn('loadLevel called but map is null');
+                return;
+            }
+            currentLevel = level;
+            currentFilter = filter;
+
+            let url, listTitle;
+            switch (level) {
+                case 'regions':
+                    url = '/api/admin/regions';
+                    listTitle = 'Regions';
+                    break;
+                case 'departments':
+                    url = `/api/admin/departments?region=${encodeURIComponent(filter || '')}`;
+                    listTitle = 'Departements';
+                    break;
+                case 'communes':
+                    url = `/api/admin/communes?department=${encodeURIComponent(filter || '')}`;
+                    listTitle = 'Communes';
+                    break;
+            }
+
+            showLoading(`Chargement des ${listTitle.toLowerCase()}...`);
+
+            try {
+                const geojson = await fetchJSON(url);
+                displayOnMap(geojson, level);
+                displayList(geojson.features, level);
+                updateStats(geojson.features);
+            } catch (e) {
+                console.error('Failed to load level:', e);
+            }
+
+            hideLoading();
+        }
+
+        // ── Map Display ──────────────────────────────────────────────
+        function displayOnMap(geojson, level) {
+            if (!map) {
+                console.error('displayOnMap: map is null');
+                return;
+            }
+            const sourceId = 'admin-source';
+            const fillId = 'admin-fill';
+            const lineId = 'admin-line';
+            const labelId = 'admin-label';
+
+            // Remove old layers
+            [labelId, lineId, fillId].forEach(id => {
+                try {
+                    if (map.getLayer(id)) map.removeLayer(id);
+                } catch (e) { }
+            });
+            try {
+                if (map.getSource(sourceId)) map.removeSource(sourceId);
+            } catch (e) { }
+
+            // Calculate breaks for choropleth
+            const values = geojson.features
+                .map(f => f.properties.impot_estime_fcfa || 0)
+                .filter(v => v > 0)
+                .sort((a, b) => a - b);
+
+            let breaks = [0];
+            if (values.length > 0) {
+                const step = Math.floor(values.length / 5);
+                for (let i = 1; i < 6; i++) {
+                    breaks.push(values[Math.min(i * step, values.length - 1)] || 0);
+                }
+            } else {
+                breaks = [0, 1000, 10000, 100000, 1000000, 10000000];
+            }
+
+            // Add source + layers
+            map.addSource(sourceId, { type: 'geojson', data: geojson });
+
+            // Fill layer (choropleth)
+            map.addLayer({
+                id: fillId,
+                type: 'fill',
+                source: sourceId,
+                paint: {
+                    'fill-color': [
+                        'step', ['get', 'impot_estime_fcfa'],
+                        CHOROPLETH_COLORS[0],
+                        breaks[1], CHOROPLETH_COLORS[1],
+                        breaks[2], CHOROPLETH_COLORS[2],
+                        breaks[3], CHOROPLETH_COLORS[3],
+                        breaks[4], CHOROPLETH_COLORS[4],
+                        breaks[5], CHOROPLETH_COLORS[5],
+                    ],
+                    'fill-opacity': 0.7,
+                },
+            });
+
+            // Border lines
+            map.addLayer({
+                id: lineId,
+                type: 'line',
+                source: sourceId,
+                paint: {
+                    'line-color': '#00d4aa',
+                    'line-width': level === 'regions' ? 2 : 1,
+                    'line-opacity': 0.6,
+                },
+            });
+
+            // Labels
+            map.addLayer({
+                id: labelId,
+                type: 'symbol',
+                source: sourceId,
+                layout: {
+                    'text-field': ['get', 'name'],
+                    'text-size': level === 'regions' ? 14 : level === 'departments' ? 12 : 10,
+                    'text-anchor': 'center',
+                    'text-allow-overlap': false,
+                    'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+                },
+                paint: {
+                    'text-color': '#e8edf2',
+                    'text-halo-color': '#0f1923',
+                    'text-halo-width': 1.5,
+                },
+            });
+
+            // Click handler
+            map.on('click', fillId, (e) => {
+                const feature = e.features[0];
+                if (!feature) return;
+                handleFeatureClick(feature, level);
+            });
+
+            // Hover cursor
+            map.on('mouseenter', fillId, () => { map.getCanvas().style.cursor = 'pointer'; });
+            map.on('mouseleave', fillId, () => { map.getCanvas().style.cursor = ''; });
+
+            // Hover popup
+            const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false });
+            map.on('mousemove', fillId, (e) => {
+                const f = e.features[0];
+                if (!f) return;
+                const p = f.properties;
+                popup.setLngLat(e.lngLat)
+                    .setHTML(`
+                <div class="popup-title">${p.name}</div>
+                <div class="popup-row"><span class="popup-label">Batiments</span><span class="popup-value">${formatNumber(p.nb_batiments)}</span></div>
+                <div class="popup-row"><span class="popup-label">Impot estime</span><span class="popup-value accent">${formatCurrency(p.impot_estime_fcfa)}</span></div>
+                ${p.prix_mercurial ? `<div class="popup-row"><span class="popup-label">Prix mercurial</span><span class="popup-value">${formatNumber(p.prix_mercurial)} FCFA/m2</span></div>` : ''}
+                ${p.nb_airbnb > 0 ? `<div class="popup-row"><span class="popup-label">Airbnb</span><span class="popup-value" style="color:var(--warning)">${p.nb_airbnb}</span></div>` : ''}
+            `)
+                    .addTo(map);
+            });
+            map.on('mouseleave', fillId, () => popup.remove());
+
+            // Fit bounds
+            if (geojson.features.length > 0) {
+                const bounds = new mapboxgl.LngLatBounds();
+                geojson.features.forEach(f => {
+                    const coords = getAllCoords(f.geometry);
+                    coords.forEach(c => bounds.extend(c));
+                });
+                map.fitBounds(bounds, { padding: 50, duration: 800 });
+            }
+
+            // Update legend with actual breaks
+            updateLegend(breaks);
+        }
+
+        function getAllCoords(geometry) {
+            const coords = [];
+            function extract(arr) {
+                if (typeof arr[0] === 'number') {
+                    coords.push(arr);
+                } else {
+                    arr.forEach(extract);
+                }
+            }
+            if (geometry.coordinates) extract(geometry.coordinates);
+            return coords;
+        }
+
+        function updateLegend(breaks) {
+            const legend = document.getElementById('legend');
+            const labels = ['Faible', 'Moyen-bas', 'Moyen', 'Moyen-haut', 'Eleve', 'Tres eleve'];
+            let html = '<div class="legend-title">Potentiel fiscal (FCFA)</div>';
+            for (let i = 0; i < CHOROPLETH_COLORS.length; i++) {
+                const from = formatCompact(breaks[i] || 0);
+                const to = i < breaks.length - 1 ? formatCompact(breaks[i + 1]) : '+';
+                html += `<div class="legend-item"><span class="legend-color" style="background:${CHOROPLETH_COLORS[i]}"></span>${from} - ${to}</div>`;
+            }
+            legend.innerHTML = html;
+        }
+
+        // ── Feature Click → Drill Down ───────────────────────────────
+        function handleFeatureClick(feature, level) {
+            const name = feature.properties.name;
+
+            if (level === 'regions') {
+                breadcrumbStack.push({ label: name, level: 'departments', filter: name });
+                updateBreadcrumb();
+                loadLevel('departments', name);
+            } else if (level === 'departments') {
+                breadcrumbStack.push({ label: name, level: 'communes', filter: name });
+                updateBreadcrumb();
+                loadLevel('communes', name);
+            } else if (level === 'communes') {
+                // At commune level, show buildings in viewport
+                showBuildingsPopup(feature);
+            }
+        }
+
+        function showBuildingsPopup(feature) {
+            const p = feature.properties;
+            new mapboxgl.Popup({ maxWidth: '300px' })
+                .setLngLat(map.getCenter())
+                .setHTML(`
+            <div class="popup-title">${p.name}</div>
+            <div class="popup-row"><span class="popup-label">Departement</span><span class="popup-value">${p.dept_name || '--'}</span></div>
+            <div class="popup-row"><span class="popup-label">Region</span><span class="popup-value">${p.region_name || '--'}</span></div>
+            <div class="popup-row"><span class="popup-label">Batiments</span><span class="popup-value">${formatNumber(p.nb_batiments)}</span></div>
+            <div class="popup-row"><span class="popup-label">Surface totale</span><span class="popup-value">${formatNumber(p.surface_totale_m2)} m2</span></div>
+            <div class="popup-row"><span class="popup-label">Prix mercurial</span><span class="popup-value">${formatNumber(p.prix_mercurial)} FCFA/m2</span></div>
+            <div class="popup-row"><span class="popup-label">Impot estime</span><span class="popup-value accent">${formatCurrency(p.impot_estime_fcfa)}</span></div>
+            ${p.nb_airbnb > 0 ? `<div class="popup-row"><span class="popup-label">Airbnb</span><span class="popup-value" style="color:var(--warning)">${p.nb_airbnb} listings</span></div>` : ''}
+            <div class="popup-row"><span class="popup-label">Code</span><span class="popup-value">${p.pcode || '--'}</span></div>
+        `)
+                .addTo(map);
+        }
+
+        // ── Side Panel ───────────────────────────────────────────────
+        function displayList(features, level) {
+            const titles = { regions: 'Regions', departments: 'Departements', communes: 'Communes' };
+            document.getElementById('listTitle').textContent = titles[level] || level;
+            document.getElementById('listCount').textContent = features.length;
+
+            // Sort by tax desc
+            features.sort((a, b) => (b.properties.impot_estime_fcfa || 0) - (a.properties.impot_estime_fcfa || 0));
+
+            const container = document.getElementById('listItems');
+            container.innerHTML = features.map(f => {
+                const p = f.properties;
+                return `
+            <div class="list-item" onclick="handleListClick('${p.name}', '${level}')">
+                <div class="list-item-name">${p.name}</div>
+                <div class="list-item-stats">
+                    <div class="list-item-tax">${formatCurrency(p.impot_estime_fcfa)}</div>
+                    <div class="list-item-buildings">${formatNumber(p.nb_batiments)} bat.</div>
+                </div>
+            </div>
+        `;
+            }).join('');
+        }
+
+        function handleListClick(name, level) {
+            if (level === 'regions') {
+                breadcrumbStack.push({ label: name, level: 'departments', filter: name });
+                updateBreadcrumb();
+                loadLevel('departments', name);
+            } else if (level === 'departments') {
+                breadcrumbStack.push({ label: name, level: 'communes', filter: name });
+                updateBreadcrumb();
+                loadLevel('communes', name);
+            }
+        }
+
+        function updateStats(features) {
+            const totalBuildings = features.reduce((s, f) => s + (f.properties.nb_batiments || 0), 0);
+            const totalTax = features.reduce((s, f) => s + (f.properties.impot_estime_fcfa || 0), 0);
+            const totalAirbnb = features.reduce((s, f) => s + (f.properties.nb_airbnb || 0), 0);
+            const totalMatched = features.reduce((s, f) => s + (f.properties.nb_airbnb_matched || 0), 0);
+
+            document.getElementById('statBuildings').textContent = formatNumber(totalBuildings);
+            document.getElementById('statTax').textContent = formatCurrency(totalTax);
+            document.getElementById('statAirbnb').textContent = formatNumber(totalAirbnb);
+            document.getElementById('statAirbnbMatch').textContent = formatNumber(totalMatched);
+        }
+
+        // ── Breadcrumb ───────────────────────────────────────────────
+        function updateBreadcrumb() {
+            const bc = document.getElementById('breadcrumb');
+            bc.innerHTML = breadcrumbStack.map((item, i) => {
+                const isLast = i === breadcrumbStack.length - 1;
+                const sep = i > 0 ? '<span class="breadcrumb-sep">&#9656;</span>' : '';
+                if (isLast) {
+                    return `${sep}<span class="breadcrumb-item active">${item.label}</span>`;
+                }
+                return `${sep}<span class="breadcrumb-item" onclick="navigateTo(${i})">${item.label}</span>`;
+            }).join('');
+        }
+
+        function navigateTo(index) {
+            breadcrumbStack = breadcrumbStack.slice(0, index + 1);
+            updateBreadcrumb();
+            const item = breadcrumbStack[index];
+            loadLevel(item.level, item.filter);
+        }
+
+        function resetView() {
+            breadcrumbStack = [{ label: 'Cameroun', level: 'regions', filter: null }];
+            updateBreadcrumb();
+            loadLevel('regions');
+            loadNationalStats();
+        }
+
+        // ── Airbnb Layer ─────────────────────────────────────────────
+        async function toggleAirbnbLayer() {
+            const btn = document.getElementById('toggleAirbnb');
+            airbnbVisible = !airbnbVisible;
+            btn.classList.toggle('active', airbnbVisible);
+
+            if (airbnbVisible) {
+                if (!airbnbData) {
+                    showLoading('Chargement Airbnb...');
+                    airbnbData = await fetchJSON('/api/airbnb');
+                    hideLoading();
+                }
+                addAirbnbLayer();
+            } else {
+                removeAirbnbLayer();
+            }
+        }
+
+        function addAirbnbLayer() {
+            if (!map || !map.loaded()) {
+                console.warn('addAirbnbLayer: map not ready');
+                return;
+            }
+            if (map.getSource('airbnb-source')) return;
+
+            map.addSource('airbnb-source', { type: 'geojson', data: airbnbData });
+
+            map.addLayer({
+                id: 'airbnb-points',
+                type: 'circle',
+                source: 'airbnb-source',
+                paint: {
+                    'circle-radius': 6,
+                    'circle-color': [
+                        'case',
+                        ['get', 'is_matched'],
+                        '#4caf50',  // green = matched
+                        '#ff6b35',  // orange = unmatched
+                    ],
+                    'circle-stroke-width': 1.5,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-opacity': 0.85,
+                },
+            });
+
+            // Airbnb click popup
+            map.on('click', 'airbnb-points', (e) => {
+                const f = e.features[0];
+                const p = f.properties;
+                new mapboxgl.Popup({ maxWidth: '280px' })
+                    .setLngLat(e.lngLat)
+                    .setHTML(`
+                <div class="popup-title">${p.title || 'Airbnb Listing'}</div>
+                <div class="popup-row"><span class="popup-label">Commune</span><span class="popup-value">${p.matched_commune || '--'}</span></div>
+                <div class="popup-row"><span class="popup-label">Region</span><span class="popup-value">${p.matched_region || '--'}</span></div>
+                <div class="popup-row"><span class="popup-label">Immatriculation</span><span class="popup-value ${p.matched_immat ? 'accent' : ''}">${p.matched_immat || 'Non trouve'}</span></div>
+                ${p.match_distance_m ? `<div class="popup-row"><span class="popup-label">Distance</span><span class="popup-value">${p.match_distance_m}m</span></div>` : ''}
+                ${p.url ? `<div style="margin-top:8px"><a href="${p.url}" target="_blank" style="color:var(--accent);font-size:11px">Voir sur Airbnb ↗</a></div>` : ''}
+            `)
+                    .addTo(map);
+            });
+
+            map.on('mouseenter', 'airbnb-points', () => { map.getCanvas().style.cursor = 'pointer'; });
+            map.on('mouseleave', 'airbnb-points', () => { map.getCanvas().style.cursor = ''; });
+        }
+
+        function removeAirbnbLayer() {
+            if (map.getLayer('airbnb-points')) map.removeLayer('airbnb-points');
+            if (map.getSource('airbnb-source')) map.removeSource('airbnb-source');
+        }
+
+        // ── Search ───────────────────────────────────────────────────
+        async function handleSearch(query) {
+            if (!query.trim()) return;
+
+            // Check if it looks like an immatriculation
+            if (query.trim().toUpperCase().startsWith('CM')) {
+                try {
+                    const result = await fetchJSON(`/api/search?immat=${encodeURIComponent(query.trim())}`);
+                    if (result.found) {
+                        map.flyTo({ center: [result.center.lon, result.center.lat], zoom: 16, duration: 1500 });
+                    }
+                } catch (e) { console.error('Search error:', e); }
+                return;
+            }
+
+            // Otherwise search by name in current list
+            const items = document.querySelectorAll('.list-item');
+            const q = query.toLowerCase().trim();
+            items.forEach(item => {
+                const name = item.querySelector('.list-item-name').textContent.toLowerCase();
+                item.style.display = name.includes(q) ? '' : 'none';
+            });
+        }
+
+        // ── Formatting ───────────────────────────────────────────────
+        function formatNumber(n) {
+            if (n === null || n === undefined || isNaN(n)) return '--';
+            return Number(n).toLocaleString('fr-FR');
+        }
+
+        function formatCurrency(n) {
+            if (n === null || n === undefined || isNaN(n) || n === 0) return '--';
+            if (n >= 1e12) return (n / 1e12).toFixed(1) + ' T';
+            if (n >= 1e9) return (n / 1e9).toFixed(1) + ' Mds';
+            if (n >= 1e6) return (n / 1e6).toFixed(1) + ' M';
+            if (n >= 1e3) return (n / 1e3).toFixed(0) + ' K';
+            return formatNumber(n);
+        }
+
+        function formatCompact(n) {
+            if (n >= 1e12) return (n / 1e12).toFixed(0) + 'T';
+            if (n >= 1e9) return (n / 1e9).toFixed(0) + 'G';
+            if (n >= 1e6) return (n / 1e6).toFixed(0) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(0) + 'K';
+            return n.toString();
+        }
+
+        // ── Loading ──────────────────────────────────────────────────
+        function showLoading(text) {
+            document.getElementById('loadingText').textContent = text || 'Chargement...';
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+    </script>
+
+</body>
+
+</html>

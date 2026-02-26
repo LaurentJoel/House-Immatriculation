@@ -1,0 +1,14 @@
+﻿ adm1_name  | adm1_pcode | adm2_name | adm2_pcode | adm3_name | adm3_pcode  
+------------+------------+-----------+------------+-----------+-------------
+ East       | CM003      |           | CM003002   |           | CM003002001
+ Centre     | CM002      |           | CM002005   |           | CM002005001
+ North-West | CM007      |           | CM007003   |           | CM007003001
+ Centre     | CM002      |           | CM002010   |           | CM002010001
+ South      | CM009      |           | CM009003   |           | CM009003001
+ Centre     | CM002      |           | CM002006   |           | CM002006001
+ Centre     | CM002      |           | CM002009   |           | CM002009001
+ South-West | CM010      |           | CM010004   |           | CM010004001
+ South-West | CM010      |           | CM010003   |           | CM010003001
+ South      | CM009      |           | CM009004   |           | CM009004001
+(10 rows)
+

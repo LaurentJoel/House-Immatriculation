@@ -1,0 +1,93 @@
+﻿{
+    "admin_boundary":  {
+                           "geometry":  {
+                                            "coordinates":  [
+                                                                "System.Object[]"
+                                                            ],
+                                            "type":  "MultiPolygon"
+                                        },
+                           "properties":  {
+                                              "adm0_name":  "Cameroon",
+                                              "adm1_name":  "Centre",
+                                              "adm2_name":  null,
+                                              "adm3_name":  null,
+                                              "adm3_pcode":  "CM002003001",
+                                              "area_sqkm":  "238.941360529999997"
+                                          },
+                           "type":  "Feature"
+                       },
+    "admin_info":  {
+                       "adm0_name":  "Cameroon",
+                       "adm1_name":  "Centre",
+                       "adm2_name":  null,
+                       "adm3_name":  null,
+                       "adm3_pcode":  "CM002003001",
+                       "area_sqkm":  "238.941360529999997"
+                   },
+    "center":  {
+                   "lat":  4.7503964110004135,
+                   "lon":  11.218614569260613
+               },
+    "found":  true,
+    "houses":  {
+                   "features":  [
+                                    {
+                                        "geometry":  "@{coordinates=System.Object[]; type=Polygon}",
+                                        "properties":  "@{amenity=; area=202.344; building_type=; id=326045349; immatriculation=CM0020030011321; name=}",
+                                        "type":  "Feature"
+                                    },
+                                    {
+                                        "geometry":  "@{coordinates=System.Object[]; type=Polygon}",
+                                        "properties":  "@{amenity=; area=56.8055; building_type=; id=326045353; immatriculation=CM0020030011321; name=}",
+                                        "type":  "Feature"
+                                    },
+                                    {
+                                        "geometry":  "@{coordinates=System.Object[]; type=Polygon}",
+                                        "properties":  "@{amenity=; area=180.821; building_type=; id=326045352; immatriculation=CM0020030011321; name=}",
+                                        "type":  "Feature"
+                                    },
+                                    {
+                                        "geometry":  "@{coordinates=System.Object[]; type=Polygon}",
+                                        "properties":  "@{amenity=; area=95.9769; building_type=; id=326045358; immatriculation=CM0020030011321; name=}",
+                                        "type":  "Feature"
+                                    },
+                                    {
+                                        "geometry":  "@{coordinates=System.Object[]; type=Polygon}",
+                                        "properties":  "@{amenity=; area=143.037; building_type=; id=326045350; immatriculation=CM0020030011321; name=}",
+                                        "type":  "Feature"
+                                    },
+                                    {
+                                        "geometry":  "@{coordinates=System.Object[]; type=Polygon}",
+                                        "properties":  "@{amenity=; area=139.884; building_type=; id=320046812; immatriculation=CM0020030011321; name=}",
+                                        "type":  "Feature"
+                                    },
+                                    {
+                                        "geometry":  "@{coordinates=System.Object[]; type=Polygon}",
+                                        "properties":  "@{amenity=; area=23.3386; building_type=; id=326045348; immatriculation=CM0020030011321; name=}",
+                                        "type":  "Feature"
+                                    },
+                                    {
+                                        "geometry":  "@{coordinates=System.Object[]; type=Polygon}",
+                                        "properties":  "@{amenity=; area=14.8825; building_type=; id=326045347; immatriculation=CM0020030011321; name=}",
+                                        "type":  "Feature"
+                                    },
+                                    {
+                                        "geometry":  "@{coordinates=System.Object[]; type=Polygon}",
+                                        "properties":  "@{amenity=; area=54.8931; building_type=; id=326045351; immatriculation=CM0020030011321; name=}",
+                                        "type":  "Feature"
+                                    },
+                                    {
+                                        "geometry":  "@{coordinates=System.Object[]; type=Polygon}",
+                                        "properties":  "@{amenity=; area=8.08009; building_type=; id=326045354; immatriculation=CM0020030011321; name=}",
+                                        "type":  "Feature"
+                                    },
+                                    {
+                                        "geometry":  "@{coordinates=System.Object[]; type=Polygon}",
+                                        "properties":  "@{amenity=; area=135.73; building_type=; id=326045355; immatriculation=CM0020030011321; name=}",
+                                        "type":  "Feature"
+                                    }
+                                ],
+                   "type":  "FeatureCollection"
+               },
+    "total_parts":  11
+}

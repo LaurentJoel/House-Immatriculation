@@ -1,0 +1,66 @@
+services:
+  # ──────────────────────────────────────────────
+  # PostgreSQL 15 + PostGIS 3.3
+  # ──────────────────────────────────────────────
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: immat_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: immatriculation
+      POSTGRES_USER: immat_user
+      POSTGRES_PASSWORD: immat_dev_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U immat_user -d immatriculation"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────
+  # Redis 7 (Caching)
+  # ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: immat_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────
+  # MinIO (S3-compatible file storage)
+  # ──────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: immat_minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

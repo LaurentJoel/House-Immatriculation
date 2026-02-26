@@ -1,0 +1,45 @@
+﻿ total 
+-------
+   360
+(1 row)
+
+                                         Table "public.cmr_admin3"
+   Column   |            Type             | Collation | Nullable |                 Default                 
+------------+-----------------------------+-----------+----------+-----------------------------------------
+ gid        | integer                     |           | not null | nextval('cmr_admin3_gid_seq'::regclass)
+ adm3_name  | character varying(80)       |           |          | 
+ adm3_name1 | character varying(80)       |           |          | 
+ adm3_name2 | character varying(80)       |           |          | 
+ adm3_name3 | character varying(80)       |           |          | 
+ adm3_pcode | character varying(80)       |           |          | 
+ adm2_name  | character varying(80)       |           |          | 
+ adm2_name1 | character varying(80)       |           |          | 
+ adm2_name2 | character varying(80)       |           |          | 
+ adm2_name3 | character varying(80)       |           |          | 
+ adm2_pcode | character varying(80)       |           |          | 
+ adm1_name  | character varying(80)       |           |          | 
+ adm1_name1 | character varying(80)       |           |          | 
+ adm1_name2 | character varying(80)       |           |          | 
+ adm1_name3 | character varying(80)       |           |          | 
+ adm1_pcode | character varying(80)       |           |          | 
+ adm0_name  | character varying(80)       |           |          | 
+ adm0_name1 | character varying(80)       |           |          | 
+ adm0_name2 | character varying(80)       |           |          | 
+ adm0_name3 | character varying(80)       |           |          | 
+ adm0_pcode | character varying(80)       |           |          | 
+ valid_on   | date                        |           |          | 
+ valid_to   | date                        |           |          | 
+ area_sqkm  | numeric                     |           |          | 
+ version    | character varying(80)       |           |          | 
+ lang       | character varying(80)       |           |          | 
+ lang1      | character varying(80)       |           |          | 
+ lang2      | character varying(80)       |           |          | 
+ lang3      | character varying(80)       |           |          | 
+ adm3_ref_n | character varying(80)       |           |          | 
+ center_lat | numeric                     |           |          | 
+ center_lon | numeric                     |           |          | 
+ geom       | geometry(MultiPolygon,4326) |           |          | 
+Indexes:
+    "cmr_admin3_pkey" PRIMARY KEY, btree (gid)
+    "cmr_admin3_geom_idx" gist (geom)
+

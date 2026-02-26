@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment variables
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Node
+node_modules/
+.next/
+frontend/admin/build/
+frontend/citizen/.next/
+
+# Flutter
+mobile/.dart_tool/
+mobile/.packages
+mobile/build/
+
+# Test coverage
+htmlcov/
+.coverage
+.pytest_cache/
+coverage/
+
+# Database
+*.sql.backup
+
+# PDF output
+PROJECT_DOCUMENTATION.pdf
+
+# Backups
+backups/*.sql
+backups/*.gz
+
+# MinIO data
+minio_data/
