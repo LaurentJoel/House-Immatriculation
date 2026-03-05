@@ -7,8 +7,21 @@
     <title>DGI Cameroun - Dashboard Fiscal</title>
     <meta name="description" content="Dashboard de visualisation du potentiel fiscal foncier du Cameroun">
     <link rel="stylesheet" href="dashboard.css">
-    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css">
-    <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+    <!-- Leaflet CSS & JS (free, no API key required) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        /* Leaflet popup styling to match dashboard theme */
+        .leaflet-popup-content-wrapper {
+            background: var(--panel-bg, #1a2332);
+            color: var(--text-primary, #e8edf2);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .leaflet-popup-tip { background: var(--panel-bg, #1a2332); }
+        .leaflet-popup-content { margin: 12px 16px; }
+        .leaflet-container { background: #0f1923; }
+    </style>
 </head>
 
 <body>
@@ -105,30 +118,17 @@
                     <div class="loading-text" id="loadingText">Chargement des donnees...</div>
                 </div>
             </div>
-
-            <!-- Token Banner (shown if no token) -->
-            <div class="token-banner" id="tokenBanner" style="display:none">
-                <h2>Token Mapbox requis</h2>
-                <p>Pour afficher la carte, entrez votre token Mapbox.<br>
-                    Creez un compte gratuit sur <a href="https://mapbox.com/signup" target="_blank"
-                        style="color:var(--accent)">mapbox.com</a>
-                    et copiez le <code>Default public token</code>.</p>
-                <div class="token-input-group">
-                    <input type="text" id="tokenInput" class="token-input" placeholder="pk.eyJ1Ijo...">
-                    <button class="token-btn" onclick="saveToken()">Valider</button>
-                </div>
-            </div>
         </div>
     </div>
 
     <script>
         // ══════════════════════════════════════════════════════════════
-        //  DGI Dashboard — Mapbox Frontend
+        //  DGI Dashboard — Leaflet/OpenStreetMap Frontend (No API Key)
         // ══════════════════════════════════════════════════════════════
 
         const API_BASE = '';  // same origin
-        const CAMEROON_CENTER = [12.3, 5.9];
-        const CAMEROON_ZOOM = 5.8;
+        const CAMEROON_CENTER = [5.9, 12.3];  // [lat, lng] for Leaflet
+        const CAMEROON_ZOOM = 6;
 
         // Choropleth color scale (green shades for fiscal potential)
         const CHOROPLETH_COLORS = [
@@ -137,37 +137,17 @@
 
         // State
         let map = null;
+        let currentLayer = null;
+        let airbnbLayer = null;
         let currentLevel = 'regions';  // regions | departments | communes | buildings
         let currentFilter = null;      // name filter for sub-levels
         let breadcrumbStack = [{ label: 'Cameroun', level: 'regions', filter: null }];
         let airbnbVisible = false;
         let airbnbData = null;
 
-        // ── Token Management ─────────────────────────────────────────
-        function getToken() {
-            return localStorage.getItem('mapbox_token') || '';
-        }
-
-        function saveToken() {
-            const token = document.getElementById('tokenInput').value.trim();
-            if (!token.startsWith('pk.')) {
-                alert('Le token doit commencer par "pk."');
-                return;
-            }
-            localStorage.setItem('mapbox_token', token);
-            document.getElementById('tokenBanner').style.display = 'none';
-            initMap(token);
-        }
-
         // ── Initialize ───────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', () => {
-            const token = getToken();
-            if (!token) {
-                document.getElementById('loadingOverlay').classList.add('hidden');
-                document.getElementById('tokenBanner').style.display = 'block';
-            } else {
-                initMap(token);
-            }
+            initMap();
 
             // Search handler
             document.getElementById('searchInput').addEventListener('keydown', (e) => {
@@ -175,28 +155,26 @@
             });
         });
 
-        function initMap(token) {
-            mapboxgl.accessToken = token;
-            map = new mapboxgl.Map({
-                container: 'map',
-                style: 'mapbox://styles/mapbox/dark-v11',
+        function initMap() {
+            // Create Leaflet map
+            map = L.map('map', {
                 center: CAMEROON_CENTER,
                 zoom: CAMEROON_ZOOM,
                 maxZoom: 18,
                 minZoom: 4,
             });
 
-            map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+            // Add OpenStreetMap dark tile layer (CartoDB Dark Matter - free)
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(map);
 
-            map.on('load', async () => {
-                console.log('Map loaded, starting loadLevel');
-                await loadLevel('regions');
-                await loadNationalStats();
+            // Load initial data
+            loadLevel('regions').then(() => {
+                loadNationalStats();
                 hideLoading();
-            });
-
-            map.on('error', (e) => {
-                console.error('Mapbox error:', e);
             });
         }
 
@@ -264,20 +242,12 @@
                 console.error('displayOnMap: map is null');
                 return;
             }
-            const sourceId = 'admin-source';
-            const fillId = 'admin-fill';
-            const lineId = 'admin-line';
-            const labelId = 'admin-label';
 
-            // Remove old layers
-            [labelId, lineId, fillId].forEach(id => {
-                try {
-                    if (map.getLayer(id)) map.removeLayer(id);
-                } catch (e) { }
-            });
-            try {
-                if (map.getSource(sourceId)) map.removeSource(sourceId);
-            } catch (e) { }
+            // Remove old layer
+            if (currentLayer) {
+                map.removeLayer(currentLayer);
+                currentLayer = null;
+            }
 
             // Calculate breaks for choropleth
             const values = geojson.features
@@ -295,113 +265,81 @@
                 breaks = [0, 1000, 10000, 100000, 1000000, 10000000];
             }
 
-            // Add source + layers
-            map.addSource(sourceId, { type: 'geojson', data: geojson });
+            // Color function based on tax value
+            function getColor(value) {
+                if (value >= breaks[5]) return CHOROPLETH_COLORS[5];
+                if (value >= breaks[4]) return CHOROPLETH_COLORS[4];
+                if (value >= breaks[3]) return CHOROPLETH_COLORS[3];
+                if (value >= breaks[2]) return CHOROPLETH_COLORS[2];
+                if (value >= breaks[1]) return CHOROPLETH_COLORS[1];
+                return CHOROPLETH_COLORS[0];
+            }
 
-            // Fill layer (choropleth)
-            map.addLayer({
-                id: fillId,
-                type: 'fill',
-                source: sourceId,
-                paint: {
-                    'fill-color': [
-                        'step', ['get', 'impot_estime_fcfa'],
-                        CHOROPLETH_COLORS[0],
-                        breaks[1], CHOROPLETH_COLORS[1],
-                        breaks[2], CHOROPLETH_COLORS[2],
-                        breaks[3], CHOROPLETH_COLORS[3],
-                        breaks[4], CHOROPLETH_COLORS[4],
-                        breaks[5], CHOROPLETH_COLORS[5],
-                    ],
-                    'fill-opacity': 0.7,
-                },
-            });
+            // Style function for GeoJSON features
+            function style(feature) {
+                const tax = feature.properties.impot_estime_fcfa || 0;
+                return {
+                    fillColor: getColor(tax),
+                    weight: level === 'regions' ? 2 : 1,
+                    opacity: 0.8,
+                    color: '#00d4aa',
+                    fillOpacity: 0.7
+                };
+            }
 
-            // Border lines
-            map.addLayer({
-                id: lineId,
-                type: 'line',
-                source: sourceId,
-                paint: {
-                    'line-color': '#00d4aa',
-                    'line-width': level === 'regions' ? 2 : 1,
-                    'line-opacity': 0.6,
-                },
-            });
-
-            // Labels
-            map.addLayer({
-                id: labelId,
-                type: 'symbol',
-                source: sourceId,
-                layout: {
-                    'text-field': ['get', 'name'],
-                    'text-size': level === 'regions' ? 14 : level === 'departments' ? 12 : 10,
-                    'text-anchor': 'center',
-                    'text-allow-overlap': false,
-                    'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
-                },
-                paint: {
-                    'text-color': '#e8edf2',
-                    'text-halo-color': '#0f1923',
-                    'text-halo-width': 1.5,
-                },
-            });
-
-            // Click handler
-            map.on('click', fillId, (e) => {
-                const feature = e.features[0];
-                if (!feature) return;
-                handleFeatureClick(feature, level);
-            });
-
-            // Hover cursor
-            map.on('mouseenter', fillId, () => { map.getCanvas().style.cursor = 'pointer'; });
-            map.on('mouseleave', fillId, () => { map.getCanvas().style.cursor = ''; });
-
-            // Hover popup
-            const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false });
-            map.on('mousemove', fillId, (e) => {
-                const f = e.features[0];
-                if (!f) return;
-                const p = f.properties;
-                popup.setLngLat(e.lngLat)
-                    .setHTML(`
-                <div class="popup-title">${p.name}</div>
-                <div class="popup-row"><span class="popup-label">Batiments</span><span class="popup-value">${formatNumber(p.nb_batiments)}</span></div>
-                <div class="popup-row"><span class="popup-label">Impot estime</span><span class="popup-value accent">${formatCurrency(p.impot_estime_fcfa)}</span></div>
-                ${p.prix_mercurial ? `<div class="popup-row"><span class="popup-label">Prix mercurial</span><span class="popup-value">${formatNumber(p.prix_mercurial)} FCFA/m2</span></div>` : ''}
-                ${p.nb_airbnb > 0 ? `<div class="popup-row"><span class="popup-label">Airbnb</span><span class="popup-value" style="color:var(--warning)">${p.nb_airbnb}</span></div>` : ''}
-            `)
-                    .addTo(map);
-            });
-            map.on('mouseleave', fillId, () => popup.remove());
-
-            // Fit bounds
-            if (geojson.features.length > 0) {
-                const bounds = new mapboxgl.LngLatBounds();
-                geojson.features.forEach(f => {
-                    const coords = getAllCoords(f.geometry);
-                    coords.forEach(c => bounds.extend(c));
+            // Highlight on hover
+            function highlightFeature(e) {
+                const layer = e.target;
+                layer.setStyle({
+                    weight: 3,
+                    color: '#00ffcc',
+                    fillOpacity: 0.85
                 });
-                map.fitBounds(bounds, { padding: 50, duration: 800 });
+                layer.bringToFront();
+                
+                // Show tooltip
+                const p = layer.feature.properties;
+                layer.bindTooltip(`
+                    <div class="popup-title">${p.name}</div>
+                    <div class="popup-row"><span class="popup-label">Batiments</span><span class="popup-value">${formatNumber(p.nb_batiments)}</span></div>
+                    <div class="popup-row"><span class="popup-label">Impot estime</span><span class="popup-value accent">${formatCurrency(p.impot_estime_fcfa)}</span></div>
+                    ${p.prix_mercurial ? `<div class="popup-row"><span class="popup-label">Prix mercurial</span><span class="popup-value">${formatNumber(p.prix_mercurial)} FCFA/m2</span></div>` : ''}
+                    ${p.nb_airbnb > 0 ? `<div class="popup-row"><span class="popup-label">Airbnb</span><span class="popup-value" style="color:var(--warning)">${p.nb_airbnb}</span></div>` : ''}
+                `, { sticky: true, className: 'leaflet-tooltip-custom' }).openTooltip();
+            }
+
+            function resetHighlight(e) {
+                currentLayer.resetStyle(e.target);
+                e.target.closeTooltip();
+            }
+
+            function onFeatureClick(e) {
+                const feature = e.target.feature;
+                handleFeatureClick(feature, level);
+            }
+
+            function onEachFeature(feature, layer) {
+                layer.on({
+                    mouseover: highlightFeature,
+                    mouseout: resetHighlight,
+                    click: onFeatureClick
+                });
+            }
+
+            // Create and add GeoJSON layer
+            currentLayer = L.geoJSON(geojson, {
+                style: style,
+                onEachFeature: onEachFeature
+            }).addTo(map);
+
+            // Fit map to bounds
+            if (geojson.features.length > 0) {
+                const bounds = currentLayer.getBounds();
+                map.fitBounds(bounds, { padding: [50, 50], duration: 0.8 });
             }
 
             // Update legend with actual breaks
             updateLegend(breaks);
-        }
-
-        function getAllCoords(geometry) {
-            const coords = [];
-            function extract(arr) {
-                if (typeof arr[0] === 'number') {
-                    coords.push(arr);
-                } else {
-                    arr.forEach(extract);
-                }
-            }
-            if (geometry.coordinates) extract(geometry.coordinates);
-            return coords;
         }
 
         function updateLegend(breaks) {
@@ -436,9 +374,10 @@
 
         function showBuildingsPopup(feature) {
             const p = feature.properties;
-            new mapboxgl.Popup({ maxWidth: '300px' })
-                .setLngLat(map.getCenter())
-                .setHTML(`
+            const center = map.getCenter();
+            L.popup({ maxWidth: 300 })
+                .setLatLng(center)
+                .setContent(`
             <div class="popup-title">${p.name}</div>
             <div class="popup-row"><span class="popup-label">Departement</span><span class="popup-value">${p.dept_name || '--'}</span></div>
             <div class="popup-row"><span class="popup-label">Region</span><span class="popup-value">${p.region_name || '--'}</span></div>
@@ -449,7 +388,7 @@
             ${p.nb_airbnb > 0 ? `<div class="popup-row"><span class="popup-label">Airbnb</span><span class="popup-value" style="color:var(--warning)">${p.nb_airbnb} listings</span></div>` : ''}
             <div class="popup-row"><span class="popup-label">Code</span><span class="popup-value">${p.pcode || '--'}</span></div>
         `)
-                .addTo(map);
+                .openOn(map);
         }
 
         // ── Side Panel ───────────────────────────────────────────────
@@ -546,56 +485,43 @@
         }
 
         function addAirbnbLayer() {
-            if (!map || !map.loaded()) {
+            if (!map) {
                 console.warn('addAirbnbLayer: map not ready');
                 return;
             }
-            if (map.getSource('airbnb-source')) return;
+            if (airbnbLayer) return;
 
-            map.addSource('airbnb-source', { type: 'geojson', data: airbnbData });
-
-            map.addLayer({
-                id: 'airbnb-points',
-                type: 'circle',
-                source: 'airbnb-source',
-                paint: {
-                    'circle-radius': 6,
-                    'circle-color': [
-                        'case',
-                        ['get', 'is_matched'],
-                        '#4caf50',  // green = matched
-                        '#ff6b35',  // orange = unmatched
-                    ],
-                    'circle-stroke-width': 1.5,
-                    'circle-stroke-color': '#ffffff',
-                    'circle-opacity': 0.85,
+            airbnbLayer = L.geoJSON(airbnbData, {
+                pointToLayer: function(feature, latlng) {
+                    const isMatched = feature.properties.is_matched;
+                    return L.circleMarker(latlng, {
+                        radius: 6,
+                        fillColor: isMatched ? '#4caf50' : '#ff6b35',
+                        color: '#ffffff',
+                        weight: 1.5,
+                        opacity: 1,
+                        fillOpacity: 0.85
+                    });
                 },
-            });
-
-            // Airbnb click popup
-            map.on('click', 'airbnb-points', (e) => {
-                const f = e.features[0];
-                const p = f.properties;
-                new mapboxgl.Popup({ maxWidth: '280px' })
-                    .setLngLat(e.lngLat)
-                    .setHTML(`
-                <div class="popup-title">${p.title || 'Airbnb Listing'}</div>
-                <div class="popup-row"><span class="popup-label">Commune</span><span class="popup-value">${p.matched_commune || '--'}</span></div>
-                <div class="popup-row"><span class="popup-label">Region</span><span class="popup-value">${p.matched_region || '--'}</span></div>
-                <div class="popup-row"><span class="popup-label">Immatriculation</span><span class="popup-value ${p.matched_immat ? 'accent' : ''}">${p.matched_immat || 'Non trouve'}</span></div>
-                ${p.match_distance_m ? `<div class="popup-row"><span class="popup-label">Distance</span><span class="popup-value">${p.match_distance_m}m</span></div>` : ''}
-                ${p.url ? `<div style="margin-top:8px"><a href="${p.url}" target="_blank" style="color:var(--accent);font-size:11px">Voir sur Airbnb ↗</a></div>` : ''}
-            `)
-                    .addTo(map);
-            });
-
-            map.on('mouseenter', 'airbnb-points', () => { map.getCanvas().style.cursor = 'pointer'; });
-            map.on('mouseleave', 'airbnb-points', () => { map.getCanvas().style.cursor = ''; });
+                onEachFeature: function(feature, layer) {
+                    const p = feature.properties;
+                    layer.bindPopup(`
+                        <div class="popup-title">${p.title || 'Airbnb Listing'}</div>
+                        <div class="popup-row"><span class="popup-label">Commune</span><span class="popup-value">${p.matched_commune || '--'}</span></div>
+                        <div class="popup-row"><span class="popup-label">Region</span><span class="popup-value">${p.matched_region || '--'}</span></div>
+                        <div class="popup-row"><span class="popup-label">Immatriculation</span><span class="popup-value ${p.matched_immat ? 'accent' : ''}">${p.matched_immat || 'Non trouve'}</span></div>
+                        ${p.match_distance_m ? `<div class="popup-row"><span class="popup-label">Distance</span><span class="popup-value">${p.match_distance_m}m</span></div>` : ''}
+                        ${p.url ? `<div style="margin-top:8px"><a href="${p.url}" target="_blank" style="color:var(--accent);font-size:11px">Voir sur Airbnb ↗</a></div>` : ''}
+                    `, { maxWidth: 280 });
+                }
+            }).addTo(map);
         }
 
         function removeAirbnbLayer() {
-            if (map.getLayer('airbnb-points')) map.removeLayer('airbnb-points');
-            if (map.getSource('airbnb-source')) map.removeSource('airbnb-source');
+            if (airbnbLayer) {
+                map.removeLayer(airbnbLayer);
+                airbnbLayer = null;
+            }
         }
 
         // ── Search ───────────────────────────────────────────────────
@@ -607,7 +533,7 @@
                 try {
                     const result = await fetchJSON(`/api/search?immat=${encodeURIComponent(query.trim())}`);
                     if (result.found) {
-                        map.flyTo({ center: [result.center.lon, result.center.lat], zoom: 16, duration: 1500 });
+                        map.flyTo([result.center.lat, result.center.lon], 16);
                     }
                 } catch (e) { console.error('Search error:', e); }
                 return;

@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carte des Maisons – DGI Cameroun</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --green:  #006B3F;
+      --gold:   #FCD116;
+      --dark:   #1a1f2e;
+      --card:   #161b22;
+      --border: #30363d;
+      --text:   #e6edf3;
+      --muted:  #8b949e;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--dark);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, var(--green) 0%, #004d2c 100%);
+      border-bottom: 3px solid var(--gold);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .logo { display:flex; align-items:center; gap:10px; font-weight:700; font-size:16px; white-space:nowrap; }
+    .logo-flag { font-size:22px; }
+    .logo-sub { font-size:11px; font-weight:400; color:rgba(255,255,255,0.7); }
+    .search-bar { display:flex; gap:8px; flex:1; max-width:460px; }
+    .search-bar input {
+      flex:1; padding:8px 14px; border-radius:8px;
+      border:1px solid rgba(255,255,255,0.2);
+      background:rgba(255,255,255,0.1); color:#fff;
+      font-size:13px; outline:none;
+    }
+    .search-bar input::placeholder { color:rgba(255,255,255,0.5); }
+    .search-bar input:focus { border-color:var(--gold); }
+    .search-bar button {
+      padding:8px 18px; border-radius:8px; border:none;
+      background:var(--gold); color:var(--dark);
+      font-weight:700; font-size:13px; cursor:pointer;
+    }
+    .search-bar button:hover { opacity:.85; }
+    .search-bar button.clear { background:rgba(255,255,255,0.12); color:#fff; }
+    #headerStatus { font-size:12px; color:rgba(255,255,255,0.75); white-space:nowrap; margin-left:auto; }
+
+    /* ── Layout ── */
+    .main { display:flex; flex:1; overflow:hidden; }
+
+    /* ── Sidebar ─────────────────────────────────── */
+    #sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 16px;
+      gap: 14px;
+    }
+
+    /* ── Stats Cards ─────────────────────────────── */
+    .section-title {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--muted); margin-bottom: 8px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .stat-card.wide { grid-column: 1 / -1; }
+
+    .stat-card .sc-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 4px;
+    }
+
+    .stat-card .sc-value {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1;
+      color: #fff;
+    }
+    .stat-card .sc-value.sm { font-size: 15px; }
+    .stat-card.green .sc-value { color: #22c55e; }
+    .stat-card.amber .sc-value { color: #f59e0b; }
+    .stat-card.blue  .sc-value { color: #38bdf8; }
+    .stat-card.pink  .sc-value { color: #f472b6; }
+
+    /* zoom hint */
+    #zoomHint {
+      background: rgba(252,209,22,0.1);
+      border: 1px solid rgba(252,209,22,0.3);
+      border-radius: 10px; padding: 10px 12px;
+      font-size: 12px; color: var(--gold); line-height: 1.5;
+    }
+
+    /* ── Legend ──────────────────────────────────── */
+    .legend-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--text); margin-bottom: 6px;
+    }
+    .swatch { width:13px; height:13px; border-radius:3px; flex-shrink:0; }
+
+    /* ── Toggle ── */
+    .toggle-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--text); cursor: pointer;
+      padding: 4px 0;
+    }
+    .toggle-row input[type=checkbox] { accent-color: var(--gold); width: 15px; height: 15px; }
+
+    /* search result */
+    #searchResult {
+      display: none;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px;
+      font-size: 12px;
+    }
+    #searchResult.show { display: block; }
+    #searchResult .ok  { color: #22c55e; margin-bottom: 6px; }
+    #searchResult .err { color: #f85149; }
+    .info-row { display:flex; justify-content:space-between; padding:2px 0; font-size:12px; }
+    .info-row .k { color: var(--muted); }
+    .info-row .v { color: var(--text); font-weight:500; }
+
+    /* spinner inline */
+    .spinner {
+      display:inline-block; width:13px; height:13px;
+      border:2px solid rgba(252,209,22,0.2); border-top-color:var(--gold);
+      border-radius:50%; animation:spin .8s linear infinite;
+      margin-right:6px; vertical-align:middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Map ─────────────────────────────────────── */
+    #map { flex: 1; }
+
+    /* ── Leaflet popup ── */
+    .leaflet-popup-content-wrapper {
+      background: rgba(13,17,23,0.97) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 12px !important;
+      color: var(--text) !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+    }
+    .leaflet-popup-tip { background: rgba(13,17,23,0.97) !important; }
+    .leaflet-popup-content { margin: 12px 16px !important; font-family: inherit !important; font-size: 13px !important; }
+    .popup-title { font-size:14px; font-weight:700; color:#22c55e; margin-bottom:8px; }
+    .popup-title.no-immat { color:#f59e0b; }
+    .popup-row { display:flex; justify-content:space-between; gap:12px; padding:2px 0; }
+    .popup-row .k { color:var(--muted); font-size:12px; }
+    .popup-row .v { color:var(--text); font-weight:500; font-size:12px; }
+    .popup-sep { border:none; border-top:1px solid rgba(255,255,255,0.08); margin:6px 0; }
+    .popup-section { font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); margin:6px 0 2px; }
+    .popup-tax { color:#f472b6; font-weight:700; font-size:13px; }
+    .airbnb-link { color:#38bdf8; text-decoration:none; font-size:11px; }
+    .airbnb-link:hover { text-decoration:underline; }
+
+    /* ── Admin browse selects ── */
+    .admin-select {
+      width: 100%;
+      padding: 7px 10px;
+      margin-bottom: 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+      appearance: auto;
+    }
+    .admin-select:focus { border-color: var(--gold); }
+    .admin-select option { background: var(--card); color: var(--text); }
+    .admin-browse-btn {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: none;
+      background: var(--gold);
+      color: var(--dark);
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    .admin-browse-btn:hover { opacity: .85; }
+    .admin-browse-btn.clear {
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      font-weight: 500;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">
+    <span class="logo-flag">🇨🇲</span>
+    <div>
+      <div>DGI – Carte des Maisons</div>
+      <div class="logo-sub">Immatriculation domicile · Cameroun</div>
+    </div>
+  </div>
+  <div class="search-bar">
+    <input id="searchInput" type="text" placeholder="Numéro immatriculation…" autocomplete="off" />
+    <button onclick="doSearch()">Chercher</button>
+    <button class="clear" onclick="clearSearch()">✕ Effacer</button>
+  </div>
+  <div id="headerStatus">Chargement…</div>
+</header>
+
+<div class="main">
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+
+    <div>
+      <div class="section-title">Statistiques</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="sc-label">Total bâtiments</div>
+          <div class="sc-value" id="statTotal">–</div>
+        </div>
+        <div class="stat-card green">
+          <div class="sc-label">Immatriculés</div>
+          <div class="sc-value" id="statImmat">–</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="sc-label">N° uniques</div>
+          <div class="sc-value" id="statUnique">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="sc-label">En vue</div>
+          <div class="sc-value" id="statVisible">0</div>
+        </div>
+        <div class="stat-card pink">
+          <div class="sc-label">Airbnb</div>
+          <div class="sc-value" id="statAirbnb">–</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="sc-label">Avec commune</div>
+          <div class="sc-value sm" id="statCommune">–</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="zoomHint">🔍 Zoomez au niveau <strong>13+</strong> pour afficher les bâtiments.</div>
+
+    <!-- Admin browse section -->
+    <div id="adminBrowse">
+      <div class="section-title">Explorer par zone</div>
+      <select id="selRegion" class="admin-select"><option value="">— Région —</option></select>
+      <select id="selDepartment" class="admin-select"><option value="">— Département —</option></select>
+      <select id="selCommune" class="admin-select"><option value="">— Commune —</option></select>
+      <button id="btnAdminBrowse" class="admin-browse-btn" onclick="doAdminBrowse()">🔍 Explorer cette zone</button>
+      <button id="btnAdminClear" class="admin-browse-btn clear" onclick="clearAdminBrowse()" style="display:none">✕ Effacer la zone</button>
+      <div id="adminBrowseStatus" style="font-size:11px;color:var(--muted);margin-top:4px;display:none"></div>
+    </div>
+
+    <div>
+      <div class="section-title">Couches</div>
+      <label class="toggle-row">
+        <input type="checkbox" id="toggleAirbnb" checked />
+        <span class="swatch" style="background:#f472b6;border-radius:50%"></span>
+        Airbnb listings
+      </label>
+    </div>
+
+    <div>
+      <div class="section-title">Légende</div>
+      <div class="legend-item"><span class="swatch" style="background:#22c55e"></span>Immatriculé (avec N°)</div>
+      <div class="legend-item"><span class="swatch" style="background:#f59e0b"></span>Non immatriculé (sans N°)</div>
+      <div class="legend-item"><span class="swatch" style="background:#f472b6;border-radius:50%"></span>Airbnb listing</div>
+      <div class="legend-item"><span class="swatch" style="background:#ef4444;border:2px solid #ef4444"></span>Résultat recherche</div>
+      <div class="legend-item"><span class="swatch" style="background:#a78bfa;border:2px dashed #a78bfa;background:transparent"></span>Limite administrative</div>
+    </div>
+
+    <div id="searchResult">
+      <div class="section-title">Résultat</div>
+      <div id="searchResultContent"></div>
+    </div>
+
+    <!-- Tax summary section -->
+    <div id="taxSummary" style="display:none">
+      <div class="section-title">Fiscalité par Région</div>
+      <div id="taxSummaryContent" style="font-size:11px; max-height:200px; overflow-y:auto;"></div>
+    </div>
+
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Helpers ────────────────────────────────────────────────────
+function fmtNum(n) { return n != null ? Number(n).toLocaleString('fr-FR') : '–'; }
+function fmtCFA(n) { return n != null ? Number(n).toLocaleString('fr-FR') + ' FCFA' : '–'; }
+
+// ── Map ────────────────────────────────────────────────────────
+const map = L.map('map', { center: [5.6, 10.2], zoom: 7, zoomControl: false });
+L.control.zoom({ position: 'topright' }).addTo(map);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  attribution: '© <a href="https://carto.com">CARTO</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
+  maxZoom: 20,
+}).addTo(map);
+
+// ── Layers ─────────────────────────────────────────────────────
+const housesLayer = L.geoJSON(null, { style: styleHouse, onEachFeature: attachPopup }).addTo(map);
+const labelsLayer = L.layerGroup().addTo(map);
+const searchLayer = L.layerGroup().addTo(map);
+const adminLayer  = L.layerGroup().addTo(map);
+const airbnbLayer = L.layerGroup().addTo(map);
+
+function styleHouse(feature) {
+  const has = !!feature.properties.immatriculation;
+  return {
+    color:       has ? '#16a34a' : '#b45309',
+    weight:      1.5,
+    opacity:     0.9,
+    fillColor:   has ? '#22c55e' : '#f59e0b',
+    fillOpacity: 0.4,
+  };
+}
+
+function attachPopup(feature, layer) {
+  const p = feature.properties;
+  const hasImmat = !!p.immatriculation;
+  const immat = p.immatriculation || '(non immatriculé)';
+  const area  = p.area ? parseFloat(p.area).toFixed(1) + ' m²' : '–';
+  const titleClass = hasImmat ? 'popup-title' : 'popup-title no-immat';
+
+  let html = `
+    <div class="${titleClass}">${immat}</div>
+    <div class="popup-row"><span class="k">ID OSM</span><span class="v">${p.id}</span></div>
+    <div class="popup-row"><span class="k">Superficie</span><span class="v">${area}</span></div>
+    <div class="popup-row"><span class="k">Type</span><span class="v">${p.building_type || '–'}</span></div>
+    ${p.name ? `<div class="popup-row"><span class="k">Nom</span><span class="v">${p.name}</span></div>` : ''}
+  `;
+
+  // Admin info
+  if (p.commune || p.departement || p.region) {
+    html += `<hr class="popup-sep"><div class="popup-section">Localisation administrative</div>`;
+    if (p.commune) html += `<div class="popup-row"><span class="k">Commune</span><span class="v">${p.commune}</span></div>`;
+    if (p.departement) html += `<div class="popup-row"><span class="k">Département</span><span class="v">${p.departement}</span></div>`;
+    if (p.region) html += `<div class="popup-row"><span class="k">Région</span><span class="v">${p.region}</span></div>`;
+  }
+
+  // Tax info
+  if (p.prix_m2 || p.impot_estime) {
+    html += `<hr class="popup-sep"><div class="popup-section">Estimation fiscale</div>`;
+    if (p.prix_m2) html += `<div class="popup-row"><span class="k">Prix mercuriale</span><span class="v">${fmtNum(p.prix_m2)} FCFA/m²</span></div>`;
+    if (p.impot_estime) html += `<div class="popup-row"><span class="k">Impôt estimé/an</span><span class="v popup-tax">${fmtCFA(p.impot_estime)}</span></div>`;
+  }
+
+  layer.bindPopup(html);
+}
+
+// ── Airbnb layer ───────────────────────────────────────────────
+const airbnbIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:14px;height:14px;background:#f472b6;border:2px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.4)"></div>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
+function styleAirbnb(feature) {
+  return {
+    color:       '#db2777',
+    weight:      2,
+    opacity:     0.9,
+    fillColor:   '#f472b6',
+    fillOpacity: 0.45,
+  };
+}
+
+function airbnbPopup(feature, layer) {
+  const p = feature.properties;
+  const area = p.building_area ? parseFloat(p.building_area).toFixed(1) + ' m²' : '–';
+  const immat = p.matched_immat || '(non immatriculé)';
+  const immatClass = p.matched_immat ? 'popup-title' : 'popup-title no-immat';
+
+  let html = `<div style="color:#f472b6;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">🏠 Airbnb</div>`;
+  html += `<div class="${immatClass}" style="color:${p.matched_immat ? '#f472b6' : '#f59e0b'}">${immat}</div>`;
+  html += `<div class="popup-row"><span class="k">Titre</span><span class="v" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.title || '–'}</span></div>`;
+  html += `<div class="popup-row"><span class="k">Superficie</span><span class="v">${area}</span></div>`;
+  if (p.building_type) html += `<div class="popup-row"><span class="k">Type</span><span class="v">${p.building_type}</span></div>`;
+  if (p.match_distance_m != null) html += `<div class="popup-row"><span class="k">Distance Airbnb→bâtiment</span><span class="v">${parseFloat(p.match_distance_m).toFixed(1)} m</span></div>`;
+
+  // Admin
+  if (p.matched_commune || p.matched_departement || p.matched_region) {
+    html += `<hr class="popup-sep"><div class="popup-section">Localisation administrative</div>`;
+    if (p.matched_commune)     html += `<div class="popup-row"><span class="k">Commune</span><span class="v">${p.matched_commune}</span></div>`;
+    if (p.matched_departement) html += `<div class="popup-row"><span class="k">Département</span><span class="v">${p.matched_departement}</span></div>`;
+    if (p.matched_region)      html += `<div class="popup-row"><span class="k">Région</span><span class="v">${p.matched_region}</span></div>`;
+  }
+
+  // Tax
+  if (p.prix_m2 || p.impot_estime) {
+    html += `<hr class="popup-sep"><div class="popup-section">Estimation fiscale</div>`;
+    if (p.prix_m2) html += `<div class="popup-row"><span class="k">Prix mercuriale</span><span class="v">${fmtNum(p.prix_m2)} FCFA/m²</span></div>`;
+    if (p.impot_estime) html += `<div class="popup-row"><span class="k">Impôt estimé/an</span><span class="v popup-tax">${fmtCFA(p.impot_estime)}</span></div>`;
+  }
+
+  if (p.url) html += `<div style="margin-top:8px"><a href="${p.url}" target="_blank" class="airbnb-link">↗ Voir sur Airbnb</a></div>`;
+
+  layer.bindPopup(html);
+}
+
+async function fetchAirbnb() {
+  try {
+    const res  = await fetch('/api/airbnb');
+    const data = await res.json();
+    airbnbLayer.clearLayers();
+    if (!data.features) return;
+    data.features.forEach(f => {
+      const p = f.properties;
+      if (p.has_building_polygon && f.geometry.type !== 'Point') {
+        // Render as polygon
+        const poly = L.geoJSON(f, { style: styleAirbnb, onEachFeature: airbnbPopup });
+        airbnbLayer.addLayer(poly);
+        // Also add a small pink dot at the Airbnb point location
+        if (p.lat && p.lon) {
+          airbnbLayer.addLayer(L.marker([p.lat, p.lon], { icon: airbnbIcon }));
+        }
+      } else {
+        // Fallback: point marker
+        const ll = [p.lat, p.lon];
+        const marker = L.marker(ll, { icon: airbnbIcon });
+        airbnbPopup(f, marker);
+        airbnbLayer.addLayer(marker);
+      }
+    });
+  } catch (e) {
+    console.error('Airbnb fetch error:', e);
+  }
+}
+
+document.getElementById('toggleAirbnb').addEventListener('change', function() {
+  if (this.checked) { map.addLayer(airbnbLayer); }
+  else { map.removeLayer(airbnbLayer); }
+});
+
+// ── Fetch houses in current viewport ───────────────────────────
+let fetchTimer = null;
+let searchActive = false;
+
+function updateHint() {
+  document.getElementById('zoomHint').style.display = map.getZoom() >= 13 ? 'none' : 'block';
+}
+
+async function fetchHouses() {
+  if (searchActive) return;
+  updateHint();
+  if (map.getZoom() < 13) {
+    housesLayer.clearLayers();
+    labelsLayer.clearLayers();
+    document.getElementById('statVisible').textContent = '0';
+    document.getElementById('headerStatus').textContent = 'Zoomez pour voir les bâtiments';
+    return;
+  }
+  const b = map.getBounds();
+  const params = new URLSearchParams({
+    west:  b.getWest().toFixed(6), south: b.getSouth().toFixed(6),
+    east:  b.getEast().toFixed(6), north: b.getNorth().toFixed(6),
+    limit: 5000,
+  });
+  document.getElementById('headerStatus').innerHTML = '<span class="spinner"></span>Chargement…';
+  try {
+    const res  = await fetch(`/api/houses?${params}`);
+    const data = await res.json();
+    housesLayer.clearLayers();
+    labelsLayer.clearLayers();
+    housesLayer.addData(data);
+    const count = data.features ? data.features.length : 0;
+    document.getElementById('statVisible').textContent = count.toLocaleString('fr-FR');
+    document.getElementById('headerStatus').textContent = `${count.toLocaleString('fr-FR')} bâtiment(s) en vue`;
+  } catch {
+    document.getElementById('headerStatus').textContent = 'Erreur de chargement';
+  }
+}
+
+map.on('moveend', () => { clearTimeout(fetchTimer); fetchTimer = setTimeout(fetchHouses, 400); });
+
+// ── Stats ──────────────────────────────────────────────────────
+async function fetchStats() {
+  try {
+    const d = await (await fetch('/api/stats')).json();
+    document.getElementById('statTotal').textContent   = d.total_houses.toLocaleString('fr-FR');
+    document.getElementById('statImmat').textContent   = d.with_immatriculation.toLocaleString('fr-FR');
+    document.getElementById('statUnique').textContent  = d.unique_immatriculations.toLocaleString('fr-FR');
+    document.getElementById('statAirbnb').textContent  = (d.total_airbnb || 0).toLocaleString('fr-FR');
+    document.getElementById('statCommune').textContent = (d.with_commune || 0).toLocaleString('fr-FR');
+  } catch {}
+}
+
+// ── Tax Summary ────────────────────────────────────────────────
+async function fetchTaxSummary() {
+  try {
+    const res = await fetch('/api/tax-summary?level=regions');
+    const data = await res.json();
+    if (!data.data || !data.data.length) return;
+    let html = '<table style="width:100%;border-collapse:collapse">';
+    html += '<tr style="color:var(--muted);font-size:9px;text-transform:uppercase"><th style="text-align:left;padding:3px">Région</th><th style="text-align:right;padding:3px">Bâtiments</th><th style="text-align:right;padding:3px">Impôt est.</th></tr>';
+    data.data.forEach(r => {
+      const impot = r.impot_estime_fcfa >= 1e12 ? (r.impot_estime_fcfa/1e12).toFixed(1) + 'T'
+                  : r.impot_estime_fcfa >= 1e9  ? (r.impot_estime_fcfa/1e9).toFixed(1)  + 'Md'
+                  : r.impot_estime_fcfa >= 1e6  ? (r.impot_estime_fcfa/1e6).toFixed(0)  + 'M'
+                  : fmtNum(r.impot_estime_fcfa);
+      html += `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:3px;color:var(--text)">${r.name || r.name_en}</td>
+        <td style="padding:3px;text-align:right;color:var(--muted)">${fmtNum(r.nb_batiments)}</td>
+        <td style="padding:3px;text-align:right;color:#f472b6;font-weight:600">${impot}</td>
+      </tr>`;
+    });
+    html += '</table>';
+    document.getElementById('taxSummaryContent').innerHTML = html;
+    document.getElementById('taxSummary').style.display = 'block';
+  } catch (e) { console.error('Tax summary error:', e); }
+}
+
+// ── Search ─────────────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+
+async function doSearch() {
+  const immat = document.getElementById('searchInput').value.trim();
+  if (!immat) return;
+  searchActive = true;
+  housesLayer.clearLayers(); labelsLayer.clearLayers();
+  searchLayer.clearLayers(); adminLayer.clearLayers();
+  document.getElementById('headerStatus').innerHTML = '<span class="spinner"></span>Recherche…';
+  document.getElementById('searchResult').className = 'show';
+  document.getElementById('searchResultContent').innerHTML = '<span style="color:var(--muted)">Recherche…</span>';
+  try {
+    const res  = await fetch(`/api/search?immat=${encodeURIComponent(immat)}`);
+    const data = await res.json();
+    if (!data.found) {
+      document.getElementById('searchResultContent').innerHTML = `<div class="err">❌ Aucun résultat pour <strong>${immat}</strong></div>`;
+      document.getElementById('headerStatus').textContent = 'Aucun résultat';
+      return;
+    }
+    // Admin boundary
+    if (data.admin_boundary) {
+      adminLayer.addLayer(L.geoJSON(data.admin_boundary, {
+        style: { color:'#a78bfa', weight:2, opacity:.7, fillOpacity:.06, dashArray:'8 4' }
+      }));
+    }
+    // Houses (highlighted)
+    const geo = L.geoJSON(data.houses, {
+      style: { color:'#ef4444', weight:3, opacity:1, fillColor:'#ef4444', fillOpacity:.4 },
+      onEachFeature(feature, layer) {
+        const p = feature.properties;
+        const ai = data.admin_info;
+        let html = `<div class="popup-title">${p.immatriculation}</div>`;
+        html += `<div class="popup-row"><span class="k">Superficie</span><span class="v">${p.area ? parseFloat(p.area).toFixed(1)+' m²' : '–'}</span></div>`;
+        html += `<div class="popup-row"><span class="k">Type</span><span class="v">${p.building_type||'–'}</span></div>`;
+        // Admin from properties (joined in query)
+        const commune = p.commune || (ai && ai.adm3_name);
+        const dept = p.departement || (ai && ai.adm2_name);
+        const region = p.region || (ai && ai.adm1_name);
+        if (commune || dept || region) {
+          html += `<hr class="popup-sep"><div class="popup-section">Localisation administrative</div>`;
+          if (commune) html += `<div class="popup-row"><span class="k">Commune</span><span class="v">${commune}</span></div>`;
+          if (dept) html += `<div class="popup-row"><span class="k">Département</span><span class="v">${dept}</span></div>`;
+          if (region) html += `<div class="popup-row"><span class="k">Région</span><span class="v">${region}</span></div>`;
+        }
+        // Tax
+        if (p.prix_m2 || p.impot_estime) {
+          html += `<hr class="popup-sep"><div class="popup-section">Estimation fiscale</div>`;
+          if (p.prix_m2) html += `<div class="popup-row"><span class="k">Prix mercuriale</span><span class="v">${fmtNum(p.prix_m2)} FCFA/m²</span></div>`;
+          if (p.impot_estime) html += `<div class="popup-row"><span class="k">Impôt estimé/an</span><span class="v popup-tax">${fmtCFA(p.impot_estime)}</span></div>`;
+        }
+        layer.bindPopup(html).openPopup();
+      }
+    });
+    searchLayer.addLayer(geo);
+    map.flyTo([data.center.lat, data.center.lon], 18, { duration: 1.4 });
+    document.getElementById('headerStatus').textContent = `🔍 ${immat} · ${data.total_parts} partie(s)`;
+    const ai = data.admin_info;
+    const firstProps = data.houses.features.length ? data.houses.features[0].properties : {};
+    let resultHtml = `<div class="ok">✅ ${data.total_parts} bâtiment(s) trouvé(s)</div>`;
+    if (ai) {
+      resultHtml += `
+      <div class="info-row"><span class="k">Commune</span><span class="v">${ai.adm3_name||firstProps.commune||'–'}</span></div>
+      <div class="info-row"><span class="k">Département</span><span class="v">${ai.adm2_name||firstProps.departement||'–'}</span></div>
+      <div class="info-row"><span class="k">Région</span><span class="v">${ai.adm1_name||firstProps.region||'–'}</span></div>
+      <div class="info-row"><span class="k">Pays</span><span class="v">${ai.adm0_name||'Cameroun'}</span></div>`;
+    }
+    if (firstProps.impot_estime) {
+      resultHtml += `<div class="info-row" style="margin-top:4px"><span class="k">Impôt estimé</span><span class="v" style="color:#f472b6;font-weight:700">${fmtCFA(firstProps.impot_estime)}</span></div>`;
+    }
+    document.getElementById('searchResultContent').innerHTML = resultHtml;
+  } catch (err) {
+    document.getElementById('searchResultContent').innerHTML = `<div class="err">❌ Erreur: ${err.message}</div>`;
+    document.getElementById('headerStatus').textContent = 'Erreur';
+  }
+}
+
+function clearSearch() {
+  searchActive = false;
+  adminBrowseActive = false;
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchResult').className = '';
+  searchLayer.clearLayers(); adminLayer.clearLayers();
+  document.getElementById('btnAdminClear').style.display = 'none';
+  document.getElementById('adminBrowseStatus').style.display = 'none';
+  fetchHouses();
+}
+
+// ── Admin browse (zone search) ─────────────────────────────────
+let adminData = { regions: [], departments: [], communes: [] };
+let adminBrowseActive = false;
+
+async function fetchAdminList() {
+  try {
+    const res  = await fetch('/api/admin-list');
+    adminData  = await res.json();
+    const selR = document.getElementById('selRegion');
+    adminData.regions.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r; o.textContent = r;
+      selR.appendChild(o);
+    });
+  } catch (e) { console.error('Admin list error:', e); }
+}
+
+document.getElementById('selRegion').addEventListener('change', function() {
+  const selD = document.getElementById('selDepartment');
+  const selC = document.getElementById('selCommune');
+  selD.innerHTML = '<option value="">— Département —</option>';
+  selC.innerHTML = '<option value="">— Commune —</option>';
+  if (!this.value) return;
+  const filtered = adminData.departments.filter(d => d.region === this.value);
+  filtered.forEach(d => {
+    const o = document.createElement('option');
+    o.value = d.name; o.textContent = d.name;
+    selD.appendChild(o);
+  });
+});
+
+document.getElementById('selDepartment').addEventListener('change', function() {
+  const selC = document.getElementById('selCommune');
+  selC.innerHTML = '<option value="">— Commune —</option>';
+  if (!this.value) return;
+  const filtered = adminData.communes.filter(c => c.department === this.value);
+  filtered.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.name; o.textContent = c.name;
+    selC.appendChild(o);
+  });
+});
+
+async function doAdminBrowse() {
+  const region     = document.getElementById('selRegion').value;
+  const department = document.getElementById('selDepartment').value;
+  const commune    = document.getElementById('selCommune').value;
+  if (!region && !department && !commune) return;
+
+  adminBrowseActive = true;
+  searchActive = true;
+  housesLayer.clearLayers(); labelsLayer.clearLayers();
+  searchLayer.clearLayers(); adminLayer.clearLayers();
+
+  const statusEl = document.getElementById('adminBrowseStatus');
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<span class="spinner"></span>Chargement de la zone…';
+  document.getElementById('headerStatus').innerHTML = '<span class="spinner"></span>Exploration…';
+
+  const params = new URLSearchParams();
+  if (commune) params.set('commune', commune);
+  else if (department) params.set('department', department);
+  else params.set('region', region);
+
+  try {
+    const res  = await fetch(`/api/admin-browse?${params}`);
+    const data = await res.json();
+    if (!data.found) {
+      statusEl.innerHTML = '<span style="color:#f85149">❌ Zone non trouvée</span>';
+      document.getElementById('headerStatus').textContent = 'Zone non trouvée';
+      return;
+    }
+
+    // Draw admin boundary
+    if (data.admin_boundary) {
+      adminLayer.addLayer(L.geoJSON(data.admin_boundary, {
+        style: { color:'#a78bfa', weight:2.5, opacity:.8, fillOpacity:.06, dashArray:'8 4' }
+      }));
+    }
+
+    // Add houses
+    if (data.houses && data.houses.features) {
+      housesLayer.addData(data.houses);
+    }
+
+    // Fly to area
+    const bb = data.bbox;
+    map.fitBounds([[bb.south, bb.west], [bb.north, bb.east]], { padding: [20, 20], maxZoom: 15, duration: 1.2 });
+
+    const zoneName = commune || department || region;
+    const n = data.total_returned;
+    const t = data.total_in_area;
+    statusEl.innerHTML = `✅ <strong>${zoneName}</strong><br>${fmtNum(t)} bâtiment(s) dans la zone — ${fmtNum(n)} affichés`;
+    document.getElementById('headerStatus').textContent = `📍 ${zoneName} · ${fmtNum(n)} bâtiments`;
+
+    document.getElementById('statVisible').textContent = n.toLocaleString('fr-FR');
+    document.getElementById('btnAdminClear').style.display = 'block';
+  } catch (err) {
+    statusEl.innerHTML = `<span style="color:#f85149">❌ Erreur: ${err.message}</span>`;
+    document.getElementById('headerStatus').textContent = 'Erreur';
+  }
+}
+
+function clearAdminBrowse() {
+  adminBrowseActive = false;
+  searchActive = false;
+  document.getElementById('selRegion').value = '';
+  document.getElementById('selDepartment').innerHTML = '<option value="">— Département —</option>';
+  document.getElementById('selCommune').innerHTML = '<option value="">— Commune —</option>';
+  document.getElementById('adminBrowseStatus').style.display = 'none';
+  document.getElementById('btnAdminClear').style.display = 'none';
+  adminLayer.clearLayers();
+  housesLayer.clearLayers();
+  labelsLayer.clearLayers();
+  fetchHouses();
+}
+
+// ── Init ───────────────────────────────────────────────────────
+fetchStats();
+fetchHouses();
+fetchAirbnb();
+fetchTaxSummary();
+fetchAdminList();
+</script>
+</body>
+</html>

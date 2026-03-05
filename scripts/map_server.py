@@ -3,11 +3,14 @@ Flask API for the DGI Cameroun Dashboard.
 Serves house data, admin boundaries, tax aggregations, and Airbnb data.
 Run with:  python map_server.py
 """
-import json
+import json, os
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import psycopg2
 import psycopg2.extras
+
+# Ensure working directory is the scripts folder (important for static files)
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
@@ -58,6 +61,11 @@ def index():
 
 @app.route("/dashboard")
 def dashboard():
+    return send_from_directory(".", "dgi_dashboard.html")
+
+
+@app.route("/dashboard-old")
+def dashboard_old():
     return send_from_directory(".", "dashboard.html")
 
 
@@ -187,7 +195,12 @@ def stats():
 # ══════════════════════════════════════════════════════════════════
 def table_exists(cur, table):
     # Check if table exists in any schema in the search path
-    cur.execute("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s)", (table,))
+    cur.execute("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables 
+            WHERE table_name = %s AND table_schema IN ('public', 'immatriculation')
+        )
+    """, (table,))
     res = cur.fetchone()
     if isinstance(res, dict):
         return res['exists']
@@ -214,8 +227,8 @@ def get_admin_regions():
                     COALESCE(s.impot_estime_fcfa, 0) AS impot_estime_fcfa,
                     COALESCE(s.nb_airbnb, 0) AS nb_airbnb,
                     COALESCE(s.nb_airbnb_matched, 0) AS nb_airbnb_matched
-                FROM admin_regions r
-                JOIN tax_summary_regions s ON r.gid = s.gid
+                FROM immatriculation.admin_regions r
+                JOIN immatriculation.tax_summary_regions s ON r.gid = s.gid
                 ORDER BY s.name;
             """)
         else:
@@ -225,7 +238,7 @@ def get_admin_regions():
                     gid, name, name_en, ST_AsGeoJSON(geom) AS geojson,
                     0 AS nb_batiments, 0 AS surface_totale_m2, 0 AS impot_estime_fcfa,
                     0 AS nb_airbnb, 0 AS nb_airbnb_matched
-                FROM admin_regions
+                FROM immatriculation.admin_regions
                 ORDER BY name;
             """)
         
@@ -271,10 +284,10 @@ def get_admin_departments():
                            COALESCE(s.surface_totale_m2, 0) AS surface_totale_m2,
                            COALESCE(s.impot_estime_fcfa, 0) AS impot_estime_fcfa,
                            COALESCE(s.nb_airbnb, 0) AS nb_airbnb
-                    FROM admin_departments d
-                    JOIN tax_summary_departments s ON d.gid = s.gid
+                    FROM immatriculation.admin_departments d
+                    JOIN immatriculation.tax_summary_departments s ON d.gid = s.gid
                     WHERE ST_Contains(
-                        (SELECT geom FROM admin_regions WHERE name = %s LIMIT 1),
+                        (SELECT geom FROM immatriculation.admin_regions WHERE name = %s LIMIT 1),
                         ST_Centroid(d.geom))
                     ORDER BY s.name;
                 """, [region_filter])
@@ -285,17 +298,17 @@ def get_admin_departments():
                            COALESCE(s.surface_totale_m2, 0) AS surface_totale_m2,
                            COALESCE(s.impot_estime_fcfa, 0) AS impot_estime_fcfa,
                            COALESCE(s.nb_airbnb, 0) AS nb_airbnb
-                    FROM admin_departments d
-                    JOIN tax_summary_departments s ON d.gid = s.gid ORDER BY s.name;
+                    FROM immatriculation.admin_departments d
+                    JOIN immatriculation.tax_summary_departments s ON d.gid = s.gid ORDER BY s.name;
                 """)
         else:
             if region_filter:
                 cur.execute("""
                     SELECT gid, name, name_en, ST_AsGeoJSON(geom) AS geojson,
                            0 AS nb_batiments, 0 AS surface_totale_m2, 0 AS impot_estime_fcfa, 0 AS nb_airbnb
-                    FROM admin_departments
+                    FROM immatriculation.admin_departments
                     WHERE ST_Contains(
-                        (SELECT geom FROM admin_regions WHERE name = %s LIMIT 1),
+                        (SELECT geom FROM immatriculation.admin_regions WHERE name = %s LIMIT 1),
                         ST_Centroid(geom))
                     ORDER BY name;
                 """, [region_filter])
@@ -303,7 +316,7 @@ def get_admin_departments():
                 cur.execute("""
                     SELECT gid, name, name_en, ST_AsGeoJSON(geom) AS geojson,
                            0 AS nb_batiments, 0 AS surface_totale_m2, 0 AS impot_estime_fcfa, 0 AS nb_airbnb
-                    FROM admin_departments ORDER BY name;
+                    FROM immatriculation.admin_departments ORDER BY name;
                 """)
                 
         rows = cur.fetchall()
@@ -326,36 +339,52 @@ def get_admin_departments():
 @app.route("/api/admin/communes")
 def get_admin_communes():
     dept_filter = request.args.get("department", "").strip()
+    region_filter = request.args.get("region", "").strip()
     conn = get_db()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         has_summary = table_exists(cur, 'tax_summary_communes')
-
         
         if has_summary:
             if dept_filter:
                 cur.execute("""
-                    SELECT c.gid, s.name, s.dept_name, s.region_name, s.pcode, s.prix_mercurial,
+                    SELECT c.gid, s.name, s.dept_name, s.region_name, s.pcode, s.prix_m2_fcfa as prix_mercurial,
                            ST_AsGeoJSON(c.geom) AS geojson,
                            COALESCE(s.nb_batiments, 0) AS nb_batiments,
                            COALESCE(s.surface_totale_m2, 0) AS surface_totale_m2,
                            COALESCE(s.impot_estime_fcfa, 0) AS impot_estime_fcfa,
                            COALESCE(s.nb_airbnb, 0) AS nb_airbnb
-                    FROM cmr_admin3 c JOIN tax_summary_communes s ON c.gid = s.gid
+                    FROM public.cmr_admin3 c 
+                    JOIN immatriculation.tax_summary_communes s ON c.gid = s.gid
                     WHERE ST_Contains(
-                        (SELECT geom FROM admin_departments WHERE name = %s LIMIT 1),
+                        (SELECT geom FROM immatriculation.admin_departments WHERE name = %s LIMIT 1),
                         ST_Centroid(c.geom))
                     ORDER BY s.name;
                 """, [dept_filter])
-            else:
+            elif region_filter:
                 cur.execute("""
-                    SELECT c.gid, s.name, s.dept_name, s.region_name, s.pcode, s.prix_mercurial,
+                    SELECT c.gid, s.name, s.dept_name, s.region_name, s.pcode, s.prix_m2_fcfa as prix_mercurial,
                            ST_AsGeoJSON(c.geom) AS geojson,
                            COALESCE(s.nb_batiments, 0) AS nb_batiments,
                            COALESCE(s.surface_totale_m2, 0) AS surface_totale_m2,
                            COALESCE(s.impot_estime_fcfa, 0) AS impot_estime_fcfa,
                            COALESCE(s.nb_airbnb, 0) AS nb_airbnb
-                    FROM cmr_admin3 c JOIN tax_summary_communes s ON c.gid = s.gid ORDER BY s.name;
+                    FROM public.cmr_admin3 c 
+                    JOIN immatriculation.tax_summary_communes s ON c.gid = s.gid
+                    WHERE s.region_name = %s
+                    ORDER BY s.name;
+                """, [region_filter])
+            else:
+                cur.execute("""
+                    SELECT c.gid, s.name, s.dept_name, s.region_name, s.pcode, s.prix_m2_fcfa as prix_mercurial,
+                           ST_AsGeoJSON(c.geom) AS geojson,
+                           COALESCE(s.nb_batiments, 0) AS nb_batiments,
+                           COALESCE(s.surface_totale_m2, 0) AS surface_totale_m2,
+                           COALESCE(s.impot_estime_fcfa, 0) AS impot_estime_fcfa,
+                           COALESCE(s.nb_airbnb, 0) AS nb_airbnb
+                    FROM public.cmr_admin3 c 
+                    JOIN immatriculation.tax_summary_communes s ON c.gid = s.gid 
+                    ORDER BY s.name;
                 """)
         else:
             if dept_filter:
@@ -439,7 +468,7 @@ def get_airbnb():
                    ROUND(match_distance_m::numeric, 1) AS match_distance_m,
                    matched_commune, matched_departement, matched_region,
                    ST_AsGeoJSON(geom) AS geojson
-            FROM airbnb_listings ORDER BY id;
+            FROM immatriculation.airbnb_listings ORDER BY id;
         """)
         rows = cur.fetchall()
         features = []
@@ -458,9 +487,222 @@ def get_airbnb():
         conn.close()
 
 
+# ── Building polygons API (for commune-level view) ───────────────
+@app.route("/api/buildings")
+def get_buildings():
+    """Return building polygons with tax info for a given commune or viewport."""
+    commune_gid = request.args.get("commune_gid", type=int)
+    west = request.args.get("west", type=float)
+    south = request.args.get("south", type=float)
+    east = request.args.get("east", type=float)
+    north = request.args.get("north", type=float)
+    limit = min(int(request.args.get("limit", 5000)), 10000)
+    
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        if commune_gid:
+            # Get buildings in a specific commune
+            cur.execute("""
+                SELECT h.col0 AS osm_id, h.col69 AS immatriculation, 
+                       h.col31 AS building_type, h.col8 AS amenity, h.col12 AS name,
+                       ROUND(h.col67::numeric, 2) AS area_m2,
+                       ROUND((h.col67::numeric * cp.prix_m2_fcfa * cp.redevance_rate)::numeric, 0) AS impot_annuel,
+                       cp.prix_m2_fcfa,
+                       ST_AsGeoJSON(h.geom) AS geojson
+                FROM public.houses_immat h
+                LEFT JOIN immatriculation.commune_prices cp ON h.commune_gid = cp.commune_gid
+                WHERE h.commune_gid = %s AND h.geom IS NOT NULL
+                LIMIT %s;
+            """, (commune_gid, limit))
+        elif all([west, south, east, north]):
+            # Get buildings in viewport
+            cur.execute("""
+                SELECT h.col0 AS osm_id, h.col69 AS immatriculation, 
+                       h.col31 AS building_type, h.col8 AS amenity, h.col12 AS name,
+                       ROUND(h.col67::numeric, 2) AS area_m2,
+                       ROUND((h.col67::numeric * COALESCE(cp.prix_m2_fcfa, 500) * COALESCE(cp.redevance_rate, 0.25))::numeric, 0) AS impot_annuel,
+                       COALESCE(cp.prix_m2_fcfa, 500) AS prix_m2_fcfa,
+                       ST_AsGeoJSON(h.geom) AS geojson
+                FROM public.houses_immat h
+                LEFT JOIN immatriculation.commune_prices cp ON h.commune_gid = cp.commune_gid
+                WHERE h.geom IS NOT NULL 
+                  AND h.geom && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
+                LIMIT %s;
+            """, (west, south, east, north, limit))
+        else:
+            return jsonify({"error": "Provide commune_gid or viewport bounds (west,south,east,north)"}), 400
+        
+        rows = cur.fetchall()
+        features = []
+        for row in rows:
+            geom = json.loads(row["geojson"]) if row["geojson"] else None
+            if not geom:
+                continue
+            features.append({
+                "type": "Feature",
+                "geometry": geom,
+                "properties": {
+                    "osm_id": row["osm_id"],
+                    "immatriculation": row["immatriculation"],
+                    "building_type": row["building_type"] or "residential",
+                    "amenity": row["amenity"],
+                    "name": row["name"],
+                    "area_m2": float(row["area_m2"]) if row["area_m2"] else 0,
+                    "impot_annuel": int(row["impot_annuel"]) if row["impot_annuel"] else 0,
+                    "prix_m2_fcfa": int(row["prix_m2_fcfa"]) if row["prix_m2_fcfa"] else 500,
+                }
+            })
+        return jsonify({
+            "type": "FeatureCollection", 
+            "features": features,
+            "count": len(features),
+            "limit": limit
+        })
+    finally:
+        conn.close()
+
+
+@app.route("/houses-map")
+def houses_map():
+    return send_from_directory(".", "houses_map.html")
+
+
+# ── Registered Houses (immatriculation app DB) ───────────────────
+@app.route("/api/registered-houses")
+def get_registered_houses():
+    """Return registered houses from the houses table as GeoJSON points."""
+    payment_status = request.args.get("payment_status", "").strip().upper()
+    verification_status = request.args.get("verification_status", "").strip().upper()
+    commune_filter = request.args.get("commune", "").strip()
+    search = request.args.get("search", "").strip()
+    limit = min(int(request.args.get("limit", 2000)), 5000)
+
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        conditions = ["gps_latitude IS NOT NULL", "gps_longitude IS NOT NULL"]
+        params = []
+
+        if payment_status:
+            conditions.append("payment_status = %s")
+            params.append(payment_status)
+        if verification_status:
+            conditions.append("verification_status = %s")
+            params.append(verification_status)
+        if commune_filter:
+            conditions.append("commune ILIKE %s")
+            params.append(f"%{commune_filter}%")
+        if search:
+            conditions.append("immatriculation_number ILIKE %s")
+            params.append(f"%{search}%")
+
+        where = "WHERE " + " AND ".join(conditions)
+        params.append(limit)
+
+        cur.execute(f"""
+            SELECT house_id, immatriculation_number, commune, department, region, quartier,
+                   building_type, building_levels,
+                   ROUND(footprint_area::numeric, 1) AS footprint_area,
+                   construction_year, wall_material, roof_material,
+                   owner_name, phone_number, verification_status, payment_status,
+                   ROUND(annual_tax_amount::numeric, 0) AS annual_tax_amount,
+                   ROUND(gps_latitude::numeric, 7) AS lat,
+                   ROUND(gps_longitude::numeric, 7) AS lon,
+                   ROUND(confidence_score::numeric, 2) AS confidence_score,
+                   TO_CHAR(detected_date, 'YYYY-MM-DD') AS detected_date
+            FROM houses
+            {where}
+            ORDER BY house_id
+            LIMIT %s
+        """, params)
+        rows = cur.fetchall()
+
+        features = []
+        for row in rows:
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [float(row["lon"]), float(row["lat"])]
+                },
+                "properties": {
+                    "id": row["house_id"],
+                    "immat": row["immatriculation_number"],
+                    "commune": row["commune"] or "–",
+                    "department": row["department"] or "–",
+                    "region": row["region"] or "–",
+                    "quartier": row["quartier"] or "–",
+                    "building_type": row["building_type"] or "–",
+                    "building_levels": row["building_levels"] or 1,
+                    "footprint_area": float(row["footprint_area"]) if row["footprint_area"] else None,
+                    "construction_year": row["construction_year"],
+                    "wall_material": row["wall_material"] or "–",
+                    "roof_material": row["roof_material"] or "–",
+                    "owner_name": row["owner_name"] or "–",
+                    "phone_number": row["phone_number"] or "–",
+                    "verification_status": row["verification_status"],
+                    "payment_status": row["payment_status"],
+                    "annual_tax": float(row["annual_tax_amount"]) if row["annual_tax_amount"] else None,
+                    "confidence": float(row["confidence_score"]) if row["confidence_score"] else 0,
+                    "detected_date": row["detected_date"] or "–",
+                }
+            })
+        return jsonify({
+            "type": "FeatureCollection",
+            "features": features,
+            "count": len(features)
+        })
+    finally:
+        conn.close()
+
+
+@app.route("/api/registered-stats")
+def get_registered_stats():
+    """Summary statistics for the registered houses table."""
+    conn = get_db()
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT
+                COUNT(*)                                                     AS total,
+                COUNT(*) FILTER (WHERE gps_latitude IS NOT NULL)            AS with_coords,
+                COUNT(*) FILTER (WHERE payment_status = 'PAID')             AS paid,
+                COUNT(*) FILTER (WHERE payment_status = 'PARTIAL')          AS partial,
+                COUNT(*) FILTER (WHERE payment_status = 'UNPAID')           AS unpaid,
+                COUNT(*) FILTER (WHERE verification_status = 'VERIFIED')    AS verified,
+                COUNT(*) FILTER (WHERE verification_status = 'PENDING')     AS pending,
+                COALESCE(SUM(annual_tax_amount), 0)                         AS total_tax_expected,
+                COALESCE(SUM(annual_tax_amount) FILTER (WHERE payment_status = 'PAID'), 0) AS total_tax_collected
+            FROM houses
+        """)
+        row = cur.fetchone()
+        return jsonify({
+            "total":               int(row["total"]),
+            "with_coords":         int(row["with_coords"]),
+            "paid":                int(row["paid"]),
+            "partial":             int(row["partial"]),
+            "unpaid":              int(row["unpaid"]),
+            "verified":            int(row["verified"]),
+            "pending":             int(row["pending"]),
+            "total_tax_expected":  float(row["total_tax_expected"]),
+            "total_tax_collected": float(row["total_tax_collected"]),
+        })
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
-    print("Map server starting at http://localhost:5555")
-    print("  Dashboard: http://localhost:5555/dashboard")
+    print("Map server starting at http://localhost:5556")
+    print("  DGI Dashboard:   http://localhost:5556/dashboard")
+    print("  Houses Map:      http://localhost:5556/houses-map")
     print("  API:  /api/admin/regions, /api/admin/departments, /api/admin/communes")
-    print("        /api/tax/summary, /api/airbnb, /api/houses, /api/search, /api/stats")
-    app.run(host="0.0.0.0", port=5555, debug=True)
+    print("        /api/tax/summary, /api/airbnb, /api/buildings, /api/houses, /api/search")
+    try:
+        from waitress import serve
+        print("  (serving with waitress)")
+        serve(app, host="127.0.0.1", port=5556, threads=4)
+    except ImportError:
+        app.run(host="127.0.0.1", port=5556, debug=False, use_reloader=False, threaded=True)
