@@ -90,10 +90,6 @@ def test():
 
 @app.route("/")
 def index():
-    return send_from_directory(SCRIPT_DIR, "houses_map.html")
-
-@app.route("/dashboard")
-def dashboard():
     return send_from_directory(SCRIPT_DIR, "dgi_dashboard.html")
 
 @app.route("/api/stats")
@@ -767,12 +763,11 @@ def get_buildings():
 
 if __name__ == "__main__":
     PORT = 5558
-    print(f"Houses Map Server starting on http://localhost:{PORT}", flush=True)
-    print(f"  Houses Map: http://localhost:{PORT}/", flush=True)
-    print(f"  Dashboard:  http://localhost:{PORT}/dashboard", flush=True)
+    print(f"DGI Cameroun Server starting on http://localhost:{PORT}", flush=True)
+    print(f"  Dashboard:  http://localhost:{PORT}/", flush=True)
     print(f"  API: /api/stats, /api/houses, /api/search, /api/airbnb, /api/tax-summary", flush=True)
     print(f"  Choropleth: /api/admin/regions, /api/admin/departments, /api/admin/communes", flush=True)
-    print(f"  Dashboard:  /api/tax/summary, /api/buildings", flush=True)
+    print(f"  Data: /api/tax/summary, /api/buildings", flush=True)
 
     # Pre-compute stats in background (takes ~30s for COUNT DISTINCT)
     threading.Thread(target=_precompute_stats, daemon=True).start()
