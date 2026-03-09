@@ -734,11 +734,9 @@
                 // Make admin layer nearly invisible when zoomed in
                 if (currentLayer) {
                     if (zoom >= 15) {
-                        // Almost invisible - just faint border
-                        currentLayer.setStyle({ fillOpacity: 0.05, opacity: 0.3, weight: 1 });
+                        currentLayer.setStyle({ fillOpacity: 0.08, opacity: 0.3, weight: 1 });
                     } else {
-                        // Light fill when zoomed out
-                        currentLayer.setStyle({ fillOpacity: 0.25, opacity: 1, weight: 2 });
+                        currentLayer.setStyle({ fillOpacity: 0.45, opacity: 1, weight: 2 });
                     }
                 }
                 
@@ -778,6 +776,9 @@
                 document.getElementById('statBuildings').textContent = formatNumber(stats.total_batiments);
                 document.getElementById('statSurface').textContent = formatNumber(Math.round(stats.surface_totale_m2));
                 document.getElementById('statAirbnb').textContent = formatNumber(stats.airbnb_total);
+                if (stats.impot_estime_total) {
+                    document.getElementById('statTaxTotal').textContent = formatCurrency(stats.impot_estime_total);
+                }
             } catch (e) {
                 console.error('Failed to load stats:', e);
             }
@@ -859,15 +860,14 @@
                     fillColor: getColor(tax),
                     weight: 2,
                     opacity: 1,
-                    color: '#006B3F',  // Green border (Cameroon)
-                    fillOpacity: 0.25  // Very transparent - let map show through
+                    color: '#006B3F',
+                    fillOpacity: 0.45
                 };
             }
 
             function highlightFeature(e) {
                 const layer = e.target;
-                // Simple border highlight, keep fill transparent
-                layer.setStyle({ weight: 3, color: '#006B3F', fillOpacity: 0.35 });
+                layer.setStyle({ weight: 3, color: '#FCD116', fillOpacity: 0.6 });
                 layer.bringToFront();
                 
                 // Bring buildings back to front if visible
@@ -897,7 +897,7 @@
                     weight: 2,
                     opacity: zoom >= 15 ? 0.3 : 1,
                     color: '#006B3F',
-                    fillOpacity: zoom >= 15 ? 0.05 : 0.25  // Nearly invisible when zoomed
+                    fillOpacity: zoom >= 15 ? 0.08 : 0.45
                 });
                 e.target.closeTooltip();
             }
@@ -1295,8 +1295,11 @@
         }
 
         function formatCompact(n) {
-            // Also shows full number for clarity
             if (n === null || n === undefined || isNaN(n)) return '--';
+            if (n >= 1e12) return (n/1e12).toFixed(1) + ' T';
+            if (n >= 1e9) return (n/1e9).toFixed(1) + ' Md';
+            if (n >= 1e6) return (n/1e6).toFixed(1) + ' M';
+            if (n >= 1e3) return (n/1e3).toFixed(0) + ' K';
             return formatNumber(n);
         }
 
