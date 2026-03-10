@@ -90,7 +90,7 @@ def test():
 
 @app.route("/")
 def index():
-    return send_from_directory(SCRIPT_DIR, "dgi_dashboard.html")
+    return send_from_directory(SCRIPT_DIR, "houses_map.html")
 
 @app.route("/api/stats")
 def stats():
