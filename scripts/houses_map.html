@@ -349,7 +349,8 @@
       <div class="section-title">Légende</div>
       <div class="legend-item"><span class="swatch" style="background:#22c55e"></span>Immatriculé (avec N°)</div>
       <div class="legend-item"><span class="swatch" style="background:#f59e0b"></span>Non immatriculé (sans N°)</div>
-      <div class="legend-item"><span class="swatch" style="background:#f472b6;border-radius:50%"></span>Airbnb listing</div>
+      <div class="legend-item"><span class="swatch" style="background:#f472b6;border-radius:50%"></span>Airbnb listing (point)</div>
+      <div class="legend-item"><span class="swatch" style="background:#f472b6;border:2px solid #db2777"></span>Bâtiment Airbnb</div>
       <div class="legend-item"><span class="swatch" style="background:#ef4444;border:2px solid #ef4444"></span>Résultat recherche</div>
       <div class="legend-item"><span class="swatch" style="background:#a78bfa;border:2px dashed #a78bfa;background:transparent"></span>Limite administrative</div>
     </div>
@@ -582,6 +583,16 @@ async function fetchNationalTax() {
 
 function styleHouse(feature) {
   const has = !!feature.properties.immatriculation;
+  const isAirbnb = !!feature.properties.airbnb_title;
+  if (isAirbnb) {
+    return {
+      color:       '#db2777',
+      weight:      2.5,
+      opacity:     1,
+      fillColor:   '#f472b6',
+      fillOpacity: 0.45,
+    };
+  }
   return {
     color:       has ? '#16a34a' : '#b45309',
     weight:      1.5,
@@ -621,7 +632,26 @@ function attachPopup(feature, layer) {
     if (p.impot_estime) html += `<div class="popup-row"><span class="k">Impôt estimé/an</span><span class="v popup-tax">${fmtCFA(p.impot_estime)}</span></div>`;
   }
 
-  layer.bindPopup(html);
+  // Airbnb info (when this building matches an Airbnb listing)
+  if (p.airbnb_title) {
+    html += `<hr class="popup-sep">
+      <div class="popup-section" style="color:#f472b6">🏠 Airbnb Listing</div>
+      <div class="popup-row"><span class="k">Titre</span><span class="v" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.airbnb_title}</span></div>`;
+    if (p.airbnb_description) {
+      const desc = p.airbnb_description.length > 200
+        ? p.airbnb_description.substring(0, 200) + '…'
+        : p.airbnb_description;
+      html += `<div class="popup-row"><span class="k">Description</span><span class="v" style="max-width:220px;white-space:normal;font-size:10px;line-height:1.3">${desc}</span></div>`;
+    }
+    if (p.airbnb_distance_m != null) {
+      html += `<div class="popup-row"><span class="k">Distance</span><span class="v">${parseFloat(p.airbnb_distance_m).toFixed(1)} m</span></div>`;
+    }
+    if (p.airbnb_url) {
+      html += `<div class="popup-row"><span class="k">Lien</span><span class="v"><a href="${p.airbnb_url}" target="_blank" rel="noopener" style="color:#f472b6;text-decoration:underline">Voir sur Airbnb ↗</a></span></div>`;
+    }
+  }
+
+  layer.bindPopup(html, { maxWidth: 320 });
 }
 
 // ── Airbnb layer ───────────────────────────────────────────────

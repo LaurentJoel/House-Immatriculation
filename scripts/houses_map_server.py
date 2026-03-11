@@ -116,11 +116,14 @@ def get_houses():
                    h.col67 AS area, h.col8 AS amenity, h.col12 AS name,
                    ST_AsGeoJSON(h.geom) AS geojson,
                    a.adm3_name1 AS commune, a.adm2_name1 AS departement, a.adm1_name AS region,
-                   m.prix_m2_fcfa
+                   m.prix_m2_fcfa,
+                   ab.title AS airbnb_title, ab.description AS airbnb_description,
+                   ab.url AS airbnb_url, ab.match_distance_m AS airbnb_distance_m
             FROM public.houses_immat h
             LEFT JOIN public.cmr_admin3 a ON h.commune_gid = a.gid
             LEFT JOIN immatriculation.commune_name_alias ca ON a.adm3_name1 = ca.admin_name
             LEFT JOIN immatriculation.mercuriale_lookup m ON ca.mercuriale_name = m.commune_name
+            LEFT JOIN immatriculation.airbnb_listings ab ON ab.matched_building_id = h.col0
             WHERE h.geom IS NOT NULL
               AND h.geom && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
               AND (h.col67 IS NULL OR CAST(h.col67 AS float) < 500000)
@@ -148,6 +151,10 @@ def get_houses():
                 "commune": row["commune"], "departement": row["departement"],
                 "region": row["region"], "prix_m2": row["prix_m2_fcfa"],
                 "impot_estime": tax_est,
+                "airbnb_title": row.get("airbnb_title"),
+                "airbnb_description": row.get("airbnb_description"),
+                "airbnb_url": row.get("airbnb_url"),
+                "airbnb_distance_m": row.get("airbnb_distance_m"),
             }
             features.append({"type": "Feature", "geometry": geom, "properties": props})
         return jsonify({"type": "FeatureCollection", "features": features, "total_in_view": len(features)})
@@ -168,11 +175,14 @@ def search_house():
                    ST_AsGeoJSON(h.geom) AS geojson,
                    ST_X(ST_Centroid(h.geom)) AS center_lon, ST_Y(ST_Centroid(h.geom)) AS center_lat,
                    a.adm3_name1 AS commune, a.adm2_name1 AS departement, a.adm1_name AS region,
-                   m.prix_m2_fcfa
+                   m.prix_m2_fcfa,
+                   ab.title AS airbnb_title, ab.description AS airbnb_description,
+                   ab.url AS airbnb_url, ab.match_distance_m AS airbnb_distance_m
             FROM public.houses_immat h
             LEFT JOIN public.cmr_admin3 a ON h.commune_gid = a.gid
             LEFT JOIN immatriculation.commune_name_alias ca ON a.adm3_name1 = ca.admin_name
             LEFT JOIN immatriculation.mercuriale_lookup m ON ca.mercuriale_name = m.commune_name
+            LEFT JOIN immatriculation.airbnb_listings ab ON ab.matched_building_id = h.col0
             WHERE h.col69 = %s AND h.geom IS NOT NULL
         """, (immat,))
         houses = cur.fetchall()
@@ -197,6 +207,10 @@ def search_house():
                     "commune": row["commune"], "departement": row["departement"],
                     "region": row["region"], "prix_m2": row["prix_m2_fcfa"],
                     "impot_estime": tax_est,
+                    "airbnb_title": row.get("airbnb_title"),
+                    "airbnb_description": row.get("airbnb_description"),
+                    "airbnb_url": row.get("airbnb_url"),
+                    "airbnb_distance_m": row.get("airbnb_distance_m"),
                 }})
         cur.execute("""
             SELECT adm3_name1 AS adm3_name, adm2_name1 AS adm2_name, adm1_name, adm0_name,
